@@ -1,0 +1,59 @@
+name: art
+description: "A new Flutter project."
+publish_to: 'none' # Keep this line if you don't plan to publish it
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.3 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Firebase dependencies (compatible versions for SDK >=3.2.3)
+  firebase_core: ^2.27.0
+  firebase_auth: ^4.17.4
+  cloud_firestore: ^4.15.4
+
+  # Bluetooth thermal printer
+  esc_pos_printer: ^4.0.3
+  esc_pos_utils: ^1.1.0
+
+  # Cupertino icons for iOS
+  cupertino_icons: ^1.0.2
+  permission_handler: ^11.3.0
+  # Shared preferences for local storage
+  shared_preferences: ^2.2.2
+  file_picker: ^6.1.1
+  # Secure local storage for tokens, if needed
+  flutter_secure_storage: ^9.0.0
+  csv: ^5.0.0    # State management (optional but useful)
+  provider: ^6.1.2
+  path_provider: ^2.1.2
+  # Date formatting
+  intl: ^0.19.0
+  flutter_animate: ^4.2.0
+  fl_chart: ^0.63.0
+  google_fonts: ^6.1.0
+  connectivity_plus: ^5.0.2
+  dropdown_button2: ^1.0.0
+  collection: ^1.18.0
+  share_plus: ^7.2.2
+  animations: ^2.0.7
+88dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+
+  # assets:
+  #   - images/logo.png
+
+  # fonts:
+  #   - family: CustomFont
+  #     fonts:
+  #       - asset: fonts/CustomFont-Regular.ttf

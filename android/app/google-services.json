@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "165595597250",
+    "project_id": "artha-71c7e",
+    "storage_bucket": "artha-71c7e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:165595597250:android:21ff6d9fca92b47facae5b",
+        "android_client_info": {
+          "package_name": "com.arthaa"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDpK76MA-5OmwYKLwhoLqsqC8WJAotvpqI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:165595597250:android:83d92e4c25a28ebfacae5b",
+        "android_client_info": {
+          "package_name": "com.example.art"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDpK76MA-5OmwYKLwhoLqsqC8WJAotvpqI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:165595597250:android:440c0ad65d106b0aacae5b",
+        "android_client_info": {
+          "package_name": "com.example.billing"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDpK76MA-5OmwYKLwhoLqsqC8WJAotvpqI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
