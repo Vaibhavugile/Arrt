@@ -39,6 +39,7 @@ dependencies:
   connectivity_plus: ^5.0.2
   dropdown_button2: ^1.0.0
   collection: ^1.18.0
+  fluttertoast: ^8.0.9
   share_plus: ^7.2.2
   animations: ^2.0.7
 88dev_dependencies:
