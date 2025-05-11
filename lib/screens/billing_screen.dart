@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-
+import'package:art/screens/MenuPage.dart';
 class BillingScreen extends StatefulWidget {
   @override
   _BillingScreenState createState() => _BillingScreenState();
@@ -69,7 +69,7 @@ class _BillingScreenState extends State<BillingScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
       builder: (_) => _buildPaymentModal(),
     );
@@ -119,9 +119,6 @@ class _BillingScreenState extends State<BillingScreen> {
       print('Error updating ingredient quantities: $e');
     }
   }
-
-
-
   Future<void> handleSavePayment() async {
     if (selectedTable != null && paymentMethod.isNotEmpty && paymentStatus.isNotEmpty) {
       try {
@@ -166,9 +163,7 @@ class _BillingScreenState extends State<BillingScreen> {
           'orderStatus': updatedOrderStatus,
           'timestamp': DateTime.now(),
         });
-
-
-// ✅ Subtract ingredients from inventory
+        // ✅ Subtract ingredients from inventory
         await updateIngredientQuantities(selectedTable!['orders']);
 
         Fluttertoast.showToast(msg: "Payment details saved successfully.");
@@ -202,23 +197,36 @@ class _BillingScreenState extends State<BillingScreen> {
             children: [
               Text(
                 'Payment for Table ${selectedTable!['tableNumber']}',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.teal.shade700),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.teal.shade700),
               ),
               SizedBox(height: 16),
 
-              /// 🧾 Show Order Details
               if (orders.isNotEmpty)
-                ...orders.map((order) => ListTile(
-                  title: Text(order['name']),
-                  subtitle: Text('Qty: ${order['quantity']} x ₹${order['price']}'),
-                  trailing: Text('₹${(order['quantity'] * order['price']).toStringAsFixed(2)}'),
-                )),
+                Container(
+                  height: 250,
+                  child: ListView.builder(
+                    itemCount: orders.length,
+                    itemBuilder: (context, index) {
+                      var order = orders[index];
+                      return Card(
+                        margin: EdgeInsets.symmetric(vertical: 4),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 4,
+                        child: ListTile(
+                          title: Text(order['name'], style: TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text('Qty: ${order['quantity']} x ₹${order['price']}'),
+                          trailing: Text('₹${(order['quantity'] * order['price']).toStringAsFixed(2)}'),
+                        ),
+                      );
+                    },
+                  ),
+                ),
               if (orders.isEmpty)
-                Text("No orders found", style: TextStyle(color: Colors.grey)),
+                Center(child: Text("No orders found", style: TextStyle(color: Colors.grey))),
 
               Divider(),
-              Text('Total: ₹${totalPrice.toStringAsFixed(2)}'),
-              Text('Discounted: ₹${discountedPrice.toStringAsFixed(2)}'),
+              Text('Total: ₹${totalPrice.toStringAsFixed(2)}', style: TextStyle(fontSize: 18)),
+              Text('Discounted: ₹${discountedPrice.toStringAsFixed(2)}', style: TextStyle(fontSize: 18)),
               SizedBox(height: 12),
 
               TextField(
@@ -226,6 +234,7 @@ class _BillingScreenState extends State<BillingScreen> {
                 decoration: InputDecoration(
                   labelText: 'Discount %',
                   border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.discount),
                 ),
                 onChanged: (val) {
                   modalSetState(() {
@@ -235,7 +244,6 @@ class _BillingScreenState extends State<BillingScreen> {
               ),
               SizedBox(height: 16),
 
-              /// Payment Method Chips
               Text('Payment Method:', style: TextStyle(fontWeight: FontWeight.bold)),
               Wrap(
                 spacing: 10,
@@ -258,7 +266,6 @@ class _BillingScreenState extends State<BillingScreen> {
               ),
               SizedBox(height: 16),
 
-              /// Payment Status Chips
               Text('Payment Status:', style: TextStyle(fontWeight: FontWeight.bold)),
               Wrap(
                 spacing: 10,
@@ -280,7 +287,6 @@ class _BillingScreenState extends State<BillingScreen> {
                 }).toList(),
               ),
 
-              /// Due Person
               if (paymentStatus == 'Due') ...[
                 SizedBox(height: 16),
                 TextField(
@@ -316,7 +322,6 @@ class _BillingScreenState extends State<BillingScreen> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -348,40 +353,60 @@ class _BillingScreenState extends State<BillingScreen> {
                     double totalPrice = calculateTotalPrice(table['orders']);
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12.0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: totalPrice > 0 ? Colors.orange.shade50 : Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
-                              spreadRadius: 2,
-                              blurRadius: 6,
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: 350,
+                          ),
+                          child: Card(
+                            elevation: 6,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(12),
+                              onTap: () {
+                                // Navigate to MenuPage with table info
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => MenuPage(table: table),
+                                  ),
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.restaurant_menu, color: Colors.teal.shade700),
+                                    SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Table ${table['tableNumber']}',
+                                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                          ),
+                                          Text(
+                                            '₹${totalPrice.toStringAsFixed(2)}',
+                                            style: TextStyle(fontSize: 16, color: Colors.teal.shade700),
+                                          ),
+                                          Text(
+                                            'Status: ${table['orderStatus']}',
+                                            style: TextStyle(color: Colors.grey.shade600),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(Icons.arrow_drop_up, color: Colors.teal.shade700),
+                                      onPressed: () => openPaymentModal(table),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ],
-                        ),
-                        child: ListTile(
-                          onTap: () => openPaymentModal(table),
-                          contentPadding: EdgeInsets.all(16),
-                          leading: Icon(Icons.restaurant_menu, color: Colors.teal.shade700),
-                          title: Text(
-                            'Table ${table['tableNumber']}',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '₹${totalPrice.toStringAsFixed(2)}',
-                                style: TextStyle(fontSize: 16, color: Colors.teal.shade700),
-                              ),
-                              Text(
-                                'Status: ${table['orderStatus']}',
-                                style: TextStyle(fontSize: 12, color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                          trailing: Icon(Icons.arrow_forward, color: Colors.teal.shade700),
+
                         ),
                       ),
                     );
