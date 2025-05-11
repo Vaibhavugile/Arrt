@@ -56,73 +56,135 @@ class _BillingScreenState extends State<BillingScreen> {
 
   Future<void> connectToBluetoothPrinter() async {
     try {
-      final List<BluetoothDevice> devices = await bluetoothPrinter.getBondedDevices();
-      final BluetoothDevice? printerDevice = devices.isNotEmpty ? devices.first : null;
+      final devices = await bluetoothPrinter.getBondedDevices();
+      if (devices.isEmpty) {
+        Fluttertoast.showToast(msg: "No Bluetooth devices found!");
+        return;
+      }
 
-      if (printerDevice != null) {
-        await bluetoothPrinter.connect(printerDevice);
+      // Disconnect before connecting again to avoid stale socket
+      await bluetoothPrinter.disconnect();
+      await Future.delayed(Duration(milliseconds: 300));
+
+      await bluetoothPrinter.connect(devices.first);
+      await Future.delayed(Duration(seconds: 1));
+
+      final connected = await bluetoothPrinter.isConnected ?? false;
+      if (connected) {
         Fluttertoast.showToast(msg: "Connected to printer!");
       } else {
-        Fluttertoast.showToast(msg: "No Bluetooth device found!");
+        Fluttertoast.showToast(msg: "Failed to connect to printer.");
       }
     } catch (e) {
       Fluttertoast.showToast(msg: "Error connecting to Bluetooth printer: $e");
     }
   }
+
   Future<bool> _ensureConnected() async {
     try {
-      // If already connected, skip
-      bool connected = await bluetoothPrinter.isConnected ?? false;
+      final connected = await bluetoothPrinter.isConnected ?? false;
       if (connected) return true;
 
-      // Otherwise get bonded devices
-      List<BluetoothDevice> devices = await bluetoothPrinter.getBondedDevices();
+      final devices = await bluetoothPrinter.getBondedDevices();
       if (devices.isEmpty) {
         Fluttertoast.showToast(msg: "No paired Bluetooth printers found");
         return false;
       }
 
-      // Connect to the first one (or let user pick)
+      // Disconnect stale socket
+      await bluetoothPrinter.disconnect();
+      await Future.delayed(Duration(milliseconds: 300));
+
       await bluetoothPrinter.connect(devices.first);
-      // Wait a moment for the connection to settle
       await Future.delayed(Duration(seconds: 1));
 
-      connected = await bluetoothPrinter.isConnected ?? false;
-      if (!connected) {
-        Fluttertoast.showToast(msg: "Failed to connect to printer");
+      final reconnected = await bluetoothPrinter.isConnected ?? false;
+      if (!reconnected) {
+        Fluttertoast.showToast(msg: "Failed to connect to printer.");
       }
-      return connected;
+      return reconnected;
     } catch (e) {
-      Fluttertoast.showToast(msg: "Error connecting: $e");
+      Fluttertoast.showToast(msg: "Error ensuring connection: $e");
       return false;
     }
   }
-  // Print the order to the Bluetooth printer
-  Future<void> printReceipt(Map<String, dynamic> table) async {
+  Future<BluetoothDevice?> _selectPrinter(BuildContext context) async {
     try {
-      bool ok = await _ensureConnected();
-      if (!ok) return;
+      List<BluetoothDevice> devices = await bluetoothPrinter.getBondedDevices();
+
+      if (devices.isEmpty) {
+        Fluttertoast.showToast(msg: "No paired Bluetooth devices found.");
+        return null;
+      }
+
+      return await showDialog<BluetoothDevice>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: Text("Select Printer"),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: devices.length,
+                itemBuilder: (context, index) {
+                  final device = devices[index];
+                  return ListTile(
+                    title: Text(device.name ?? "Unknown"),
+                    subtitle: Text(device.address ?? ""),
+                    onTap: () => Navigator.pop(context, device),
+                  );
+                },
+              ),
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      Fluttertoast.showToast(msg: "Error fetching paired devices: $e");
+      return null;
+    }
+  }
+
+
+  Future<void> printReceipt(BuildContext context, Map<String, dynamic> table) async {
+    try {
+      final BluetoothDevice? selectedDevice = await _selectPrinter(context);
+      if (selectedDevice == null) return;
+
+      await bluetoothPrinter.connect(selectedDevice);
+      await Future.delayed(Duration(seconds: 1));
+
+      final isConnected = await bluetoothPrinter.isConnected ?? false;
+      if (!isConnected) {
+        Fluttertoast.showToast(msg: "Failed to connect to selected printer.");
+        return;
+      }
+
+      final orders = List<Map<String, dynamic>>.from(table['orders'] ?? []);
+      final totalPrice = calculateTotalPrice(orders);
+
       // Header
-      bluetoothPrinter.printCustom("Restaurant Name", 3, 1); // Large, Center
+      bluetoothPrinter.printCustom("Restaurant Name", 3, 1);
       bluetoothPrinter.printCustom("Branch: $branchCode", 1, 1);
       bluetoothPrinter.printNewLine();
 
-      // Table & Order Status
-      bluetoothPrinter.printCustom("Table: ${table['tableNumber']}", 1, 0); // Small, Left
-      bluetoothPrinter.printCustom("Order Status: ${table['orderStatus']}", 1, 0);
+      // Order info
+      bluetoothPrinter.printCustom("Table: ${table['tableNumber'] ?? 'N/A'}", 1, 0);
+      bluetoothPrinter.printCustom("Order Status: ${table['orderStatus'] ?? 'N/A'}", 1, 0);
       bluetoothPrinter.printNewLine();
 
-      // Order Details
-      for (var order in table['orders']) {
-        String line = "${order['name']} x${order['quantity']} - ₹${(order['price'] * order['quantity']).toStringAsFixed(2)}";
-        bluetoothPrinter.printCustom(line, 1, 0);
+      for (var order in orders) {
+        final name = order['name'] ?? 'Unknown';
+        final qty = order['quantity'] ?? 0;
+        final price = order['price'] ?? 0.0;
+        final lineTotal = (qty * price).toStringAsFixed(2);
+
+        bluetoothPrinter.printCustom("$name x$qty - ₹$lineTotal", 1, 0);
       }
 
       bluetoothPrinter.printNewLine();
-
-      // Total Price
-      double totalPrice = calculateTotalPrice(table['orders']);
-      bluetoothPrinter.printCustom("Total: ₹${totalPrice.toStringAsFixed(2)}", 2, 2); // Medium, Right
+      bluetoothPrinter.printCustom("Total: ₹${totalPrice.toStringAsFixed(2)}", 2, 2);
       bluetoothPrinter.printNewLine();
 
       // Footer
@@ -135,6 +197,8 @@ class _BillingScreenState extends State<BillingScreen> {
       Fluttertoast.showToast(msg: "Error printing receipt: $e");
     }
   }
+
+
   void _showReceiptPreview(Map<String, dynamic> table) {
     final lines = <String>[];
 
@@ -447,14 +511,19 @@ class _BillingScreenState extends State<BillingScreen> {
 
 
 
+
               ElevatedButton.icon(
-                onPressed: () => printReceipt(selectedTable!),
+                onPressed: selectedTable != null
+                    ? () => printReceipt(context, selectedTable!)
+                    : null, // disable if no table selected
                 icon: Icon(Icons.print),
                 label: Text('Print Receipt'),
                 style: ElevatedButton.styleFrom(
-                  minimumSize: Size.fromHeight(48),          // give it some height
+                  minimumSize: Size.fromHeight(48),
                   backgroundColor: Colors.teal.shade700,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
 
@@ -464,7 +533,6 @@ class _BillingScreenState extends State<BillingScreen> {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -478,80 +546,124 @@ class _BillingScreenState extends State<BillingScreen> {
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: () {
+                  /* your “Add New Table” logic */
+                },
                 child: Text('Add New Table'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
                 ),
               ),
             ),
+
+            // <-- Real-time table list -->
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                child: ListView.builder(
-                  itemCount: tables.length,
-                  itemBuilder: (context, index) {
-                    var table = tables[index];
-                    double totalPrice = calculateTotalPrice(table['orders']);
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12.0),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: 350,
-                          ),
-                          child: Card(
-                            elevation: 6,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(12),
-                              onTap: () {
-                                // Navigate to MenuPage with table info
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => MenuPage( tableId: table['id'],),
-                                  ),
-                                );
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.restaurant_menu, color: Colors.teal.shade700),
-                                    SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Table ${table['tableNumber']}',
-                                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                          ),
-                                          Text(
-                                            '₹${totalPrice.toStringAsFixed(2)}',
-                                            style: TextStyle(fontSize: 16, color: Colors.teal.shade700),
-                                          ),
-                                          Text(
-                                            'Status: ${table['orderStatus']}',
-                                            style: TextStyle(color: Colors.grey.shade600),
-                                          ),
-                                        ],
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: _db
+                      .collection('tables')
+                      .doc(branchCode)
+                      .collection('tables')
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Error: ${snapshot.error}'));
+                    }
+                    if (!snapshot.hasData) {
+                      return Center(child: CircularProgressIndicator());
+                    }
+
+                    // Map Firestore docs into your local table list
+                    final docs = snapshot.data!.docs;
+                    final tables = docs.map((d) {
+                      final data = d.data()! as Map<String, dynamic>;
+                      return {
+                        'id': d.id,
+                        ...data,
+                        'orderStatus': data['orderStatus'] ?? 'Running Order',
+                      };
+                    }).toList();
+
+                    return ListView.builder(
+                      itemCount: tables.length,
+                      itemBuilder: (context, index) {
+                        final table = tables[index];
+                        final totalPrice = calculateTotalPrice(table['orders']);
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: Center(
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(maxWidth: 350),
+                              child: Card(
+                                elevation: 6,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () async {
+                                    // Await the push so you could do something afterwards if needed
+                                    await Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            MenuPage(tableId: table['id']),
                                       ),
+                                    );
+                                    // no need to fetchTables(); StreamBuilder will auto-update
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16.0),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.restaurant_menu,
+                                            color: Colors.teal.shade700),
+                                        SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment
+                                                .start,
+                                            children: [
+                                              Text(
+                                                'Table ${table['tableNumber']}',
+                                                style: TextStyle(fontSize: 18,
+                                                    fontWeight: FontWeight
+                                                        .bold),
+                                              ),
+                                              Text(
+                                                '₹${totalPrice.toStringAsFixed(
+                                                    2)}',
+                                                style: TextStyle(fontSize: 16,
+                                                    color: Colors.teal
+                                                        .shade700),
+                                              ),
+                                              Text(
+                                                'Status: ${table['orderStatus']}',
+                                                style: TextStyle(
+                                                    color: Colors.grey
+                                                        .shade600),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: Icon(Icons.arrow_drop_up,
+                                              color: Colors.teal.shade700),
+                                          onPressed: () =>
+                                              openPaymentModal(table),
+                                        ),
+                                      ],
                                     ),
-                                    IconButton(
-                                      icon: Icon(Icons.arrow_drop_up, color: Colors.teal.shade700),
-                                      onPressed: () => openPaymentModal(table),
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-
-                        ),
-                      ),
+                        );
+                      },
                     );
                   },
                 ),
@@ -561,10 +673,11 @@ class _BillingScreenState extends State<BillingScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () {
+          /* your add-table */
+        },
         backgroundColor: Colors.teal.shade700,
         child: Icon(Icons.add),
       ),
     );
-  }
-}
+  }}
