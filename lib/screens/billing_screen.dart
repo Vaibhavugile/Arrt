@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import'package:art/screens/MenuPage.dart';
+import 'package:art/screens/MenuPage.dart';
+import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as serial;
+import 'package:blue_thermal_printer/blue_thermal_printer.dart';
+
+import 'package:permission_handler/permission_handler.dart';
+
 class BillingScreen extends StatefulWidget {
   @override
   _BillingScreenState createState() => _BillingScreenState();
@@ -17,6 +22,7 @@ class _BillingScreenState extends State<BillingScreen> {
   String paymentStatus = '';
   String responsibleName = '';
   double discountPercentage = 0.0;
+  BlueThermalPrinter bluetoothPrinter = BlueThermalPrinter.instance;
 
   @override
   void initState() {
@@ -45,6 +51,128 @@ class _BillingScreenState extends State<BillingScreen> {
       print("Error fetching tables: $e");
     }
   }
+  // Connect to the Bluetooth printer
+  // Connect to the Bluetooth printer
+
+  Future<void> connectToBluetoothPrinter() async {
+    try {
+      final List<BluetoothDevice> devices = await bluetoothPrinter.getBondedDevices();
+      final BluetoothDevice? printerDevice = devices.isNotEmpty ? devices.first : null;
+
+      if (printerDevice != null) {
+        await bluetoothPrinter.connect(printerDevice);
+        Fluttertoast.showToast(msg: "Connected to printer!");
+      } else {
+        Fluttertoast.showToast(msg: "No Bluetooth device found!");
+      }
+    } catch (e) {
+      Fluttertoast.showToast(msg: "Error connecting to Bluetooth printer: $e");
+    }
+  }
+  Future<bool> _ensureConnected() async {
+    try {
+      // If already connected, skip
+      bool connected = await bluetoothPrinter.isConnected ?? false;
+      if (connected) return true;
+
+      // Otherwise get bonded devices
+      List<BluetoothDevice> devices = await bluetoothPrinter.getBondedDevices();
+      if (devices.isEmpty) {
+        Fluttertoast.showToast(msg: "No paired Bluetooth printers found");
+        return false;
+      }
+
+      // Connect to the first one (or let user pick)
+      await bluetoothPrinter.connect(devices.first);
+      // Wait a moment for the connection to settle
+      await Future.delayed(Duration(seconds: 1));
+
+      connected = await bluetoothPrinter.isConnected ?? false;
+      if (!connected) {
+        Fluttertoast.showToast(msg: "Failed to connect to printer");
+      }
+      return connected;
+    } catch (e) {
+      Fluttertoast.showToast(msg: "Error connecting: $e");
+      return false;
+    }
+  }
+  // Print the order to the Bluetooth printer
+  Future<void> printReceipt(Map<String, dynamic> table) async {
+    try {
+      bool ok = await _ensureConnected();
+      if (!ok) return;
+      // Header
+      bluetoothPrinter.printCustom("Restaurant Name", 3, 1); // Large, Center
+      bluetoothPrinter.printCustom("Branch: $branchCode", 1, 1);
+      bluetoothPrinter.printNewLine();
+
+      // Table & Order Status
+      bluetoothPrinter.printCustom("Table: ${table['tableNumber']}", 1, 0); // Small, Left
+      bluetoothPrinter.printCustom("Order Status: ${table['orderStatus']}", 1, 0);
+      bluetoothPrinter.printNewLine();
+
+      // Order Details
+      for (var order in table['orders']) {
+        String line = "${order['name']} x${order['quantity']} - ₹${(order['price'] * order['quantity']).toStringAsFixed(2)}";
+        bluetoothPrinter.printCustom(line, 1, 0);
+      }
+
+      bluetoothPrinter.printNewLine();
+
+      // Total Price
+      double totalPrice = calculateTotalPrice(table['orders']);
+      bluetoothPrinter.printCustom("Total: ₹${totalPrice.toStringAsFixed(2)}", 2, 2); // Medium, Right
+      bluetoothPrinter.printNewLine();
+
+      // Footer
+      bluetoothPrinter.printCustom("Thank you for dining with us!", 1, 1);
+      bluetoothPrinter.printCustom("Please visit again.", 1, 1);
+      bluetoothPrinter.printNewLine();
+
+      await bluetoothPrinter.disconnect();
+    } catch (e) {
+      Fluttertoast.showToast(msg: "Error printing receipt: $e");
+    }
+  }
+  void _showReceiptPreview(Map<String, dynamic> table) {
+    final lines = <String>[];
+
+    // Build the same lines you print:
+    lines.add("       Restaurant Name");
+    lines.add("        Branch: $branchCode");
+    lines.add("--------------------------------");
+    lines.add("Table: ${table['tableNumber']}");
+    lines.add("Status: ${table['orderStatus']}");
+    lines.add("--------------------------------");
+    for (var order in table['orders']) {
+      lines.add("${order['name']} x${order['quantity']}   ₹${(order['price'] * order['quantity']).toStringAsFixed(2)}");
+    }
+    lines.add("--------------------------------");
+    final total = calculateTotalPrice(table['orders']);
+    lines.add("Total:      ₹${total.toStringAsFixed(2)}");
+    lines.add("--------------------------------");
+    lines.add(" Thank you for dining with us! ");
+    lines.add("   Please visit again.   ");
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("Receipt Preview"),
+        content: Container(
+          width: double.maxFinite,
+          child: ListView(
+            children: lines.map((l) => Text(l, style: TextStyle(fontFamily: 'Courier', fontSize: 14))).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("Close")),
+        ],
+      ),
+    );
+  }
+
+
 
   double calculateTotalPrice(List<dynamic> orders) {
     return orders.fold(0.0, (total, order) {
@@ -315,6 +443,21 @@ class _BillingScreenState extends State<BillingScreen> {
                 ],
               ),
               SizedBox(height: 10),
+
+
+
+
+              ElevatedButton.icon(
+                onPressed: () => printReceipt(selectedTable!),
+                icon: Icon(Icons.print),
+                label: Text('Print Receipt'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: Size.fromHeight(48),          // give it some height
+                  backgroundColor: Colors.teal.shade700,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+
             ],
           ),
         ),
@@ -368,7 +511,7 @@ class _BillingScreenState extends State<BillingScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => MenuPage(table: table),
+                                    builder: (_) => MenuPage( tableId: table['id'],),
                                   ),
                                 );
                               },
