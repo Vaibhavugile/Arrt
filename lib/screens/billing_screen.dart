@@ -4,7 +4,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:art/screens/MenuPage.dart';
 import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as serial;
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class BillingScreen extends StatefulWidget {
@@ -22,8 +22,7 @@ class _BillingScreenState extends State<BillingScreen> {
   String paymentStatus = '';
   String responsibleName = '';
   double discountPercentage = 0.0;
-  BlueThermalPrinter bluetoothPrinter = BlueThermalPrinter.instance;
-
+  final BlueThermalPrinter bluetoothPrinter = BlueThermalPrinter.instance;
   @override
   void initState() {
     super.initState();
@@ -53,6 +52,20 @@ class _BillingScreenState extends State<BillingScreen> {
   }
   // Connect to the Bluetooth printer
   // Connect to the Bluetooth printer
+  Future<void> saveSelectedPrinter(String address) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('saved_printer_address', address);
+  }
+  Future<BluetoothDevice?> getSavedPrinter() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedAddress = prefs.getString('saved_printer_address');
+    if (savedAddress == null) return null;
+
+    final devices = await bluetoothPrinter.getBondedDevices();
+    final matches = devices.where((device) => device.address == savedAddress);
+    return matches.isNotEmpty ? matches.first : null;
+
+  }
 
   Future<void> connectToBluetoothPrinter() async {
     try {
@@ -79,35 +92,63 @@ class _BillingScreenState extends State<BillingScreen> {
       Fluttertoast.showToast(msg: "Error connecting to Bluetooth printer: $e");
     }
   }
+  Future<BluetoothDevice?> showPrinterSelectionDialog(BuildContext context) async {
+    final devices = await bluetoothPrinter.getBondedDevices();
+    return showDialog<BluetoothDevice>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Select a printer'),
+        content: SizedBox(
+          height: 300,
+          width: double.maxFinite,
+          child: ListView.builder(
+            itemCount: devices.length,
+            itemBuilder: (_, index) {
+              final device = devices[index];
+              return ListTile(
+                title: Text(device.name ?? 'Unknown'),
+                subtitle: Text(device.address ?? 'N/A'),
+                onTap: () => Navigator.of(context).pop(device),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
 
-  Future<bool> _ensureConnected() async {
+  Future<bool> ensureConnected(BuildContext context) async {
     try {
-      final connected = await bluetoothPrinter.isConnected ?? false;
+      bool connected = await bluetoothPrinter.isConnected ?? false;
       if (connected) return true;
 
-      final devices = await bluetoothPrinter.getBondedDevices();
-      if (devices.isEmpty) {
-        Fluttertoast.showToast(msg: "No paired Bluetooth printers found");
-        return false;
+      BluetoothDevice? device = await getSavedPrinter();
+
+      // If not saved, ask user to pick one
+      if (device == null) {
+        device = await showPrinterSelectionDialog(context);
+        if (device == null) {
+          Fluttertoast.showToast(msg: "Printer selection cancelled");
+          return false;
+        }
+        await saveSelectedPrinter(device.address!);
       }
 
-      // Disconnect stale socket
-      await bluetoothPrinter.disconnect();
-      await Future.delayed(Duration(milliseconds: 300));
+      await bluetoothPrinter.connect(device);
+      await Future.delayed(const Duration(seconds: 1));
+      connected = await bluetoothPrinter.isConnected ?? false;
 
-      await bluetoothPrinter.connect(devices.first);
-      await Future.delayed(Duration(seconds: 1));
-
-      final reconnected = await bluetoothPrinter.isConnected ?? false;
-      if (!reconnected) {
-        Fluttertoast.showToast(msg: "Failed to connect to printer.");
+      if (!connected) {
+        Fluttertoast.showToast(msg: "Failed to connect to printer");
       }
-      return reconnected;
+
+      return connected;
     } catch (e) {
-      Fluttertoast.showToast(msg: "Error ensuring connection: $e");
+      Fluttertoast.showToast(msg: "Connection error: $e");
       return false;
     }
   }
+
   Future<BluetoothDevice?> _selectPrinter(BuildContext context) async {
     try {
       List<BluetoothDevice> devices = await bluetoothPrinter.getBondedDevices();
@@ -146,50 +187,86 @@ class _BillingScreenState extends State<BillingScreen> {
     }
   }
 
-
   Future<void> printReceipt(BuildContext context, Map<String, dynamic> table) async {
     try {
-      final BluetoothDevice? selectedDevice = await _selectPrinter(context);
-      if (selectedDevice == null) return;
+      // Check if printer is already saved
+      BluetoothDevice? device = await getSavedPrinter();
 
-      await bluetoothPrinter.connect(selectedDevice);
+      // If not saved, show selection dialog
+      if (device == null) {
+        device = await showPrinterSelectionDialog(context);
+        if (device == null) return; // User cancelled
+        await saveSelectedPrinter(device.address!); // Save selection
+      }
+
+      // Try to connect
+      await bluetoothPrinter.connect(device);
       await Future.delayed(Duration(seconds: 1));
 
       final isConnected = await bluetoothPrinter.isConnected ?? false;
       if (!isConnected) {
-        Fluttertoast.showToast(msg: "Failed to connect to selected printer.");
+        Fluttertoast.showToast(msg: "Failed to connect to printer.");
         return;
       }
-
       final orders = List<Map<String, dynamic>>.from(table['orders'] ?? []);
       final totalPrice = calculateTotalPrice(orders);
+      final paymentMethod = table['paymentMethod'] ?? 'Cash';
+      final dateTime = DateTime.now();
+      final tableNumber = table['tableNumber'] ?? 'N/A';
+      final orderStatus = table['orderStatus'] ?? 'N/A';
+
+      bluetoothPrinter.printNewLine();
 
       // Header
-      bluetoothPrinter.printCustom("Restaurant Name", 3, 1);
+      bluetoothPrinter.printCustom("       My Fine Dine", 3, 1);
       bluetoothPrinter.printCustom("Branch: $branchCode", 1, 1);
+      bluetoothPrinter.printCustom("Date: ${dateTime.toLocal().toString().split('.').first}", 1, 1);
       bluetoothPrinter.printNewLine();
 
-      // Order info
-      bluetoothPrinter.printCustom("Table: ${table['tableNumber'] ?? 'N/A'}", 1, 0);
-      bluetoothPrinter.printCustom("Order Status: ${table['orderStatus'] ?? 'N/A'}", 1, 0);
+      // Order Info
+      bluetoothPrinter.printCustom("Table No: $tableNumber", 1, 0);
+      bluetoothPrinter.printCustom("Status: $orderStatus", 1, 0);
+      bluetoothPrinter.printCustom("Payment: $paymentMethod", 1, 0);
       bluetoothPrinter.printNewLine();
+
+      // Item list header
+      bluetoothPrinter.printCustom("--------------------------------", 1, 1);
+      bluetoothPrinter.printCustom("Item        Qty  Price  Total", 1, 0);
+      bluetoothPrinter.printCustom("--------------------------------", 1, 1);
 
       for (var order in orders) {
-        final name = order['name'] ?? 'Unknown';
-        final qty = order['quantity'] ?? 0;
-        final price = order['price'] ?? 0.0;
-        final lineTotal = (qty * price).toStringAsFixed(2);
+        final name = (order['name'] ?? 'Unknown').toString().padRight(12).substring(0, 12);
+        final quantity = int.tryParse(order['quantity'].toString()) ?? 0;
+        final price = double.tryParse(order['price'].toString()) ?? 0.0;
+        final lineTotal = (quantity * price).toStringAsFixed(2).padLeft(6);
+        final qtyStr = quantity.toString().padLeft(3);
+        final priceStr = price.toStringAsFixed(2).padLeft(6);
 
-        bluetoothPrinter.printCustom("$name x$qty - ₹$lineTotal", 1, 0);
+        final line = "$name $qtyStr $priceStr $lineTotal";
+        bluetoothPrinter.printCustom(line, 1, 0);
       }
 
-      bluetoothPrinter.printNewLine();
-      bluetoothPrinter.printCustom("Total: ₹${totalPrice.toStringAsFixed(2)}", 2, 2);
+      bluetoothPrinter.printCustom("--------------------------------", 1, 1);
+
+      // Totals
+      final tax = totalPrice * 0.05;
+      final discount = 0.0;
+      final grandTotal = totalPrice + tax - discount;
+
+      bluetoothPrinter.printCustom("Subtotal           ${totalPrice.toStringAsFixed(2)}", 1, 2);
+      bluetoothPrinter.printCustom("Tax (5%)           ${tax.toStringAsFixed(2)}", 1, 2);
+      if (discount > 0) {
+        bluetoothPrinter.printCustom("Discount          -${discount.toStringAsFixed(2)}", 1, 2);
+      }
+      bluetoothPrinter.printCustom("Total              ${grandTotal.toStringAsFixed(2)}", 2, 2);
       bluetoothPrinter.printNewLine();
 
       // Footer
+      bluetoothPrinter.printCustom("--------------------------------", 1, 1);
       bluetoothPrinter.printCustom("Thank you for dining with us!", 1, 1);
-      bluetoothPrinter.printCustom("Please visit again.", 1, 1);
+      bluetoothPrinter.printCustom("Feedback? 1800-123-456", 1, 1);
+      bluetoothPrinter.printCustom("Visit again!", 1, 1);
+      bluetoothPrinter.printCustom("--------------------------------", 1, 1);
       bluetoothPrinter.printNewLine();
 
       await bluetoothPrinter.disconnect();
@@ -199,42 +276,8 @@ class _BillingScreenState extends State<BillingScreen> {
   }
 
 
-  void _showReceiptPreview(Map<String, dynamic> table) {
-    final lines = <String>[];
 
-    // Build the same lines you print:
-    lines.add("       Restaurant Name");
-    lines.add("        Branch: $branchCode");
-    lines.add("--------------------------------");
-    lines.add("Table: ${table['tableNumber']}");
-    lines.add("Status: ${table['orderStatus']}");
-    lines.add("--------------------------------");
-    for (var order in table['orders']) {
-      lines.add("${order['name']} x${order['quantity']}   ₹${(order['price'] * order['quantity']).toStringAsFixed(2)}");
-    }
-    lines.add("--------------------------------");
-    final total = calculateTotalPrice(table['orders']);
-    lines.add("Total:      ₹${total.toStringAsFixed(2)}");
-    lines.add("--------------------------------");
-    lines.add(" Thank you for dining with us! ");
-    lines.add("   Please visit again.   ");
 
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text("Receipt Preview"),
-        content: Container(
-          width: double.maxFinite,
-          child: ListView(
-            children: lines.map((l) => Text(l, style: TextStyle(fontFamily: 'Courier', fontSize: 14))).toList(),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text("Close")),
-        ],
-      ),
-    );
-  }
 
 
 
