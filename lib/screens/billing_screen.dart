@@ -7,6 +7,7 @@ import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:ui';
+import 'package:art/screens/AddTable.dart';
 
 
 class BillingScreen extends StatefulWidget {
@@ -773,7 +774,10 @@ class _BillingScreenState extends State<BillingScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Add table
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => AddTable()),
+          );
         },
         backgroundColor: Color(0xFF4CB050),
         child: Icon(Icons.add),

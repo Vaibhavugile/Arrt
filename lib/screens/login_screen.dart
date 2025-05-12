@@ -10,6 +10,11 @@ import 'branch_dashboard.dart';
 import 'subuser_dashboard.dart';
 import '../providers/user_provider.dart';
 
+
+import 'package:connectivity_plus/connectivity_plus.dart';
+
+
+
 class LoginScreen extends StatefulWidget {
   @override
   _LoginScreenState createState() => _LoginScreenState();
@@ -38,25 +43,43 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
 
+    final connectivity = await Connectivity().checkConnectivity();
+    final prefs = await SharedPreferences.getInstance();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (connectivity == ConnectivityResult.none) {
+      // Offline login
+      final savedEmail = prefs.getString('email');
+      final savedPassword = prefs.getString('password');
+
+      if (savedEmail == email && savedPassword == password) {
+        Navigator.pushReplacement(
+            context, MaterialPageRoute(builder: (_) => BranchDashboard()));
+      } else {
+        setState(() => _error = 'No internet and credentials do not match offline records.');
+      }
+      setState(() => _loading = false);
+      return;
+    }
+
     try {
       final auth = FirebaseAuth.instance;
       final result = await auth.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+        email: email,
+        password: password,
       );
 
       final user = result.user;
       if (user != null) {
         final token = await user.getIdToken();
         if (token != null) {
-          final prefs = await SharedPreferences.getInstance();
           if (_rememberMe) {
             await prefs.setString('authToken', token);
-            await prefs.setString('email', _emailController.text.trim());
-            await prefs.setString('password', _passwordController.text.trim());
+            await prefs.setString('email', email);
+            await prefs.setString('password', password);
           }
 
-          final email = _emailController.text.trim();
           final firestore = FirebaseFirestore.instance;
 
           final superAdmins = await firestore

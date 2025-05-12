@@ -11,6 +11,7 @@ import 'package:intl/intl.dart'; // For DateFormat
 import 'package:art/screens/AddInventoryScreen.dart';
 import 'package:art/screens/EditInventoryScreen.dart';
 import 'package:art/screens/AddStockScreen.dart';
+import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 class InventoryScreen extends StatefulWidget {
   @override
   _InventoryScreenState createState() => _InventoryScreenState();
@@ -142,38 +143,43 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
           ],
         ),
-        floatingActionButton: Column(
-          mainAxisSize: MainAxisSize.min,
+        floatingActionButton: SpeedDial(
+          animatedIcon: AnimatedIcons.menu_close,
+          backgroundColor: Color(0xFF4CB050),
+          foregroundColor: Colors.white,
+          overlayColor: Colors.black,
+          overlayOpacity: 0.5,
+          spacing: 14,
+          spaceBetweenChildren: 8,
+          heroTag: 'mainSpeedDial',
           children: [
-            FloatingActionButton.extended(
-            onPressed: () {
-      Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => AddInventoryScreen()),
-      );
-      },
-              label: Text('Add Inventory'),
-              icon: Icon(Icons.add),
-              heroTag: 'addInventory',
+            SpeedDialChild(
+              child: Icon(Icons.add),
+              label: 'Add Inventory',
+              backgroundColor: Colors.deepPurple,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => AddInventoryScreen()),
+                );
+              },
             ),
-            SizedBox(height: 12),
-            FloatingActionButton.extended(
-              onPressed: () {
+            SpeedDialChild(
+              child: Icon(Icons.inventory),
+              label: 'Add Stock',
+              backgroundColor: Colors.teal,
+              onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => AddStockScreen()),
                 );
               },
-              label: Text('Add Stock'),
-              icon: Icon(Icons.inventory),
-              heroTag: 'addStock',
             ),
-            SizedBox(height: 12),
-            FloatingActionButton.extended(
-              onPressed: () => exportToCSV(inventoryItems, context),
-              label: Text('Export to CSV'),
-              icon: Icon(Icons.download),
-              heroTag: 'exportCSV',
+            SpeedDialChild(
+              child: Icon(Icons.download),
+              label: 'Export to CSV',
+              backgroundColor: Colors.indigo,
+              onTap: () => exportToCSV(inventoryItems, context),
             ),
           ],
         ),
