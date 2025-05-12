@@ -54,8 +54,8 @@ dependencies:
 flutter:
   uses-material-design: true
 
-  # assets:
-  #   - images/logo.png
+#  assets:
+#    - images/logo.png
 
   # fonts:
   #   - family: CustomFont

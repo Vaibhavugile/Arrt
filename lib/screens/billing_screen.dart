@@ -6,6 +6,8 @@ import 'package:flutter_bluetooth_serial/flutter_bluetooth_serial.dart' as seria
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:ui';
+
 
 class BillingScreen extends StatefulWidget {
   @override
@@ -94,28 +96,39 @@ class _BillingScreenState extends State<BillingScreen> {
   }
   Future<BluetoothDevice?> showPrinterSelectionDialog(BuildContext context) async {
     final devices = await bluetoothPrinter.getBondedDevices();
+
     return showDialog<BluetoothDevice>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Select a printer'),
+      builder: (dialogContext) => AlertDialog(
+        title: Text('Select a printer'),
         content: SizedBox(
           height: 300,
           width: double.maxFinite,
-          child: ListView.builder(
+          child: devices.isEmpty
+              ? Center(child: Text("No paired printers found"))
+              : ListView.builder(
             itemCount: devices.length,
             itemBuilder: (_, index) {
               final device = devices[index];
               return ListTile(
                 title: Text(device.name ?? 'Unknown'),
                 subtitle: Text(device.address ?? 'N/A'),
-                onTap: () => Navigator.of(context).pop(device),
+                onTap: () => Navigator.of(dialogContext).pop(device), // ✅ Use dialogContext here
               );
             },
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(), // ✅ Use dialogContext here too
+            child: Text('Cancel'),
+          ),
+        ],
       ),
     );
   }
+
+
 
   Future<bool> ensureConnected(BuildContext context) async {
     try {
@@ -292,23 +305,7 @@ class _BillingScreenState extends State<BillingScreen> {
     return totalPrice - discountAmount;
   }
 
-  void openPaymentModal(Map<String, dynamic> table) {
-    selectedTable = table;
-    paymentMethod = '';
-    paymentStatus = '';
-    responsibleName = '';
-    discountPercentage = 0.0;
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-      ),
-      builder: (_) => _buildPaymentModal(),
-    );
-  }
   Future<void> updateIngredientQuantities(List<dynamic> orders) async {
     try {
       final Map<String, double> inventoryUpdates = {};
@@ -412,196 +409,223 @@ class _BillingScreenState extends State<BillingScreen> {
       Fluttertoast.showToast(msg: 'Select payment method and status');
     }
   }
+  void openPaymentModal(Map<String, dynamic> table) {
+    selectedTable = table;
+    paymentMethod = '';
+    paymentStatus = '';
+    responsibleName = '';
+    discountPercentage = 0.0;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _buildPaymentModal(),
+    );
+  }
 
   Widget _buildPaymentModal() {
     final orders = selectedTable?['orders'] ?? [];
     final totalPrice = calculateTotalPrice(orders);
     final discountedPrice = calculateDiscountedPrice(totalPrice, discountPercentage);
 
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        left: 16,
-        right: 16,
-        top: 24,
-      ),
-      child: SingleChildScrollView(
-        child: StatefulBuilder(
-          builder: (context, modalSetState) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Payment for Table ${selectedTable!['tableNumber']}',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.teal.shade700),
-              ),
-              SizedBox(height: 16),
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.75,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      builder: (context, scrollController) {
+        return ClipRRect(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+            child: Container(
+              color: Colors.white.withOpacity(0.92),
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: StatefulBuilder(
+                builder: (context, modalSetState) => ListView(
+                  controller: scrollController,
+                  children: [
+                    Text(
+                      'Payment - Table ${selectedTable?['tableNumber']}',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF263238),
+                      ),
+                    ),
+                    SizedBox(height: 16),
 
-              if (orders.isNotEmpty)
-                Container(
-                  height: 250,
-                  child: ListView.builder(
-                    itemCount: orders.length,
-                    itemBuilder: (context, index) {
-                      var order = orders[index];
-                      return Card(
+                    if (orders.isNotEmpty)
+                      ...orders.map((order) => Card(
                         margin: EdgeInsets.symmetric(vertical: 4),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        elevation: 4,
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
                         child: ListTile(
-                          title: Text(order['name'], style: TextStyle(fontWeight: FontWeight.bold)),
+                          title: Text(order['name'],
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text('Qty: ${order['quantity']} x ₹${order['price']}'),
-                          trailing: Text('₹${(order['quantity'] * order['price']).toStringAsFixed(2)}'),
+                          trailing: Text(
+                            '₹${(order['quantity'] * order['price']).toStringAsFixed(2)}',
+                            style: TextStyle(fontWeight: FontWeight.w500),
+                          ),
                         ),
-                      );
-                    },
-                  ),
-                ),
-              if (orders.isEmpty)
-                Center(child: Text("No orders found", style: TextStyle(color: Colors.grey))),
+                      )),
+                    if (orders.isEmpty)
+                      Center(child: Text("No orders found", style: TextStyle(color: Colors.grey))),
 
-              Divider(),
-              Text('Total: ₹${totalPrice.toStringAsFixed(2)}', style: TextStyle(fontSize: 18)),
-              Text('Discounted: ₹${discountedPrice.toStringAsFixed(2)}', style: TextStyle(fontSize: 18)),
-              SizedBox(height: 12),
-
-              TextField(
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Discount %',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.discount),
-                ),
-                onChanged: (val) {
-                  modalSetState(() {
-                    discountPercentage = double.tryParse(val) ?? 0.0;
-                  });
-                },
-              ),
-              SizedBox(height: 16),
-
-              Text('Payment Method:', style: TextStyle(fontWeight: FontWeight.bold)),
-              Wrap(
-                spacing: 10,
-                children: ['Cash', 'Card', 'UPI', 'Due'].map((method) {
-                  return ChoiceChip(
-                    label: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                      child: Text(method),
+                    Divider(height: 32, thickness: 1),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Total:',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        Text('₹${totalPrice.toStringAsFixed(2)}',
+                            style: TextStyle(fontSize: 16)),
+                      ],
                     ),
-                    selected: paymentMethod == method,
-                    selectedColor: Colors.teal.shade700,
-                    labelStyle: TextStyle(
-                      color: paymentMethod == method ? Colors.white : Colors.black,
+                    SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Discounted:',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        Text('₹${discountedPrice.toStringAsFixed(2)}',
+                            style: TextStyle(fontSize: 16, color: Colors.green.shade700)),
+                      ],
                     ),
-                    onSelected: (_) {
-                      modalSetState(() => paymentMethod = method);
-                    },
-                  );
-                }).toList(),
-              ),
-              SizedBox(height: 16),
+                    SizedBox(height: 20),
 
-              Text('Payment Status:', style: TextStyle(fontWeight: FontWeight.bold)),
-              Wrap(
-                spacing: 10,
-                children: ['Settled', 'Due'].map((status) {
-                  return ChoiceChip(
-                    label: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 10.0),
-                      child: Text(status),
+                    TextField(
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: 'Discount %',
+                        prefixIcon: Icon(Icons.percent),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onChanged: (val) {
+                        modalSetState(() {
+                          discountPercentage = double.tryParse(val) ?? 0.0;
+                        });
+                      },
                     ),
-                    selected: paymentStatus == status,
-                    selectedColor: Colors.teal.shade700,
-                    labelStyle: TextStyle(
-                      color: paymentStatus == status ? Colors.white : Colors.black,
+                    SizedBox(height: 24),
+
+                    Text('Payment Method:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    SizedBox(height: 8),
+                    Wrap(
+                      spacing: 10,
+                      children: ['Cash', 'Card', 'UPI', 'Due'].map((method) {
+                        return ChoiceChip(
+                          label: Text(method),
+                          selected: paymentMethod == method,
+                          selectedColor: Color(0xFF1565C0),
+                          backgroundColor: Color(0xFFE3F2FD),
+                          labelStyle: TextStyle(
+                            color: paymentMethod == method ? Colors.white : Colors.black87,
+                          ),
+                          onSelected: (_) {
+                            modalSetState(() => paymentMethod = method);
+                          },
+                        );
+                      }).toList(),
                     ),
-                    onSelected: (_) {
-                      modalSetState(() => paymentStatus = status);
-                    },
-                  );
-                }).toList(),
-              ),
+                    SizedBox(height: 20),
 
-              if (paymentStatus == 'Due') ...[
-                SizedBox(height: 16),
-                TextField(
-                  decoration: InputDecoration(
-                    labelText: 'Responsible Person',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (val) => modalSetState(() => responsibleName = val),
-                ),
-              ],
+                    Text('Payment Status:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    SizedBox(height: 8),
+                    Wrap(
+                      spacing: 10,
+                      children: ['Settled', 'Due'].map((status) {
+                        return ChoiceChip(
+                          label: Text(status),
+                          selected: paymentStatus == status,
+                          selectedColor: status == 'Settled' ? Color(0xFF2E7D32) : Color(0xFFF9A825),
+                          backgroundColor: Colors.grey.shade200,
+                          labelStyle: TextStyle(
+                            color: paymentStatus == status ? Colors.white : Colors.black87,
+                          ),
+                          onSelected: (_) {
+                            modalSetState(() => paymentStatus = status);
+                          },
+                        );
+                      }).toList(),
+                    ),
 
-              SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
+                    if (paymentStatus == 'Due') ...[
+                      SizedBox(height: 16),
+                      TextField(
+                        decoration: InputDecoration(
+                          labelText: 'Responsible Person',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onChanged: (val) => modalSetState(() => responsibleName = val),
+                      ),
+                    ],
+
+                    SizedBox(height: 28),
+                    ElevatedButton.icon(
                       onPressed: handleSavePayment,
                       icon: Icon(Icons.save),
                       label: Text('Save Payment'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal.shade700,
+                        backgroundColor: Color(0xFF1565C0),
+                        foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        minimumSize: Size.fromHeight(50),
+                        elevation: 4,
                       ),
                     ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 10),
-
-
-
-
-
-              ElevatedButton.icon(
-                onPressed: selectedTable != null
-                    ? () => printReceipt(context, selectedTable!)
-                    : null, // disable if no table selected
-                icon: Icon(Icons.print),
-                label: Text('Print Receipt'),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: Size.fromHeight(48),
-                  backgroundColor: Colors.teal.shade700,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                    SizedBox(height: 14),
+                    ElevatedButton.icon(
+                      onPressed: selectedTable != null
+                          ? () => printReceipt(context, selectedTable!)
+                          : null,
+                      icon: Icon(Icons.print),
+                      label: Text('Print Receipt'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey.shade800,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        minimumSize: Size.fromHeight(48),
+                        elevation: 3,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
+
   }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Billing'),
-        backgroundColor: Colors.teal.shade700,
+        backgroundColor: Color(0xFF4CB050),
+        title: Text(
+          'La Casa',
+          style: TextStyle(color: Colors.white), // 👈 Makes text white
+        ),
+        iconTheme: IconThemeData(color: Colors.white), // optional: makes back icon white too
       ),
       body: SafeArea(
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: ElevatedButton(
-                onPressed: () {
-                  /* your “Add New Table” logic */
-                },
-                child: Text('Add New Table'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                ),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0, vertical: 12),
+              child: SizedBox(
+                width: double.infinity,
+
               ),
             ),
 
-            // <-- Real-time table list -->
+            // Real-time table list
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12.0),
@@ -619,7 +643,6 @@ class _BillingScreenState extends State<BillingScreen> {
                       return Center(child: CircularProgressIndicator());
                     }
 
-                    // Map Firestore docs into your local table list
                     final docs = snapshot.data!.docs;
                     final tables = docs.map((d) {
                       final data = d.data()! as Map<String, dynamic>;
@@ -630,77 +653,102 @@ class _BillingScreenState extends State<BillingScreen> {
                       };
                     }).toList();
 
-                    return ListView.builder(
+                    if (tables.isEmpty) {
+                      return Center(
+                        child: Text(
+                          "No tables available.",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      );
+                    }
+
+                    return GridView.builder(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 1.05,
+                      ),
                       itemCount: tables.length,
                       itemBuilder: (context, index) {
                         final table = tables[index];
                         final totalPrice = calculateTotalPrice(table['orders']);
+                        final hasOrders = (table['orders'] as List?)?.isNotEmpty ?? false;
 
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          child: Center(
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(maxWidth: 350),
-                              child: Card(
-                                elevation: 6,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12)),
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(12),
-                                  onTap: () async {
-                                    // Await the push so you could do something afterwards if needed
-                                    await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            MenuPage(tableId: table['id']),
+                        return Container(
+                          decoration: BoxDecoration(
+                            color: Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 8,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                            border: Border.all(
+                              color: hasOrders ? Colors.red.shade400 : Colors.green.shade400,
+                              width: 1,
+                            ),
+
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => MenuPage(tableId: table['id']),
+                                  ),
+                                );
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  children: [
+                                    Icon(Icons.table_restaurant, size: 20, color: Color(0xFF455A64)),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      ' ${table['tableNumber']}',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF333333),
                                       ),
-                                    );
-                                    // no need to fetchTables(); StreamBuilder will auto-update
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16.0),
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.restaurant_menu,
-                                            color: Colors.teal.shade700),
-                                        SizedBox(width: 16),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment
-                                                .start,
-                                            children: [
-                                              Text(
-                                                'Table ${table['tableNumber']}',
-                                                style: TextStyle(fontSize: 18,
-                                                    fontWeight: FontWeight
-                                                        .bold),
-                                              ),
-                                              Text(
-                                                '₹${totalPrice.toStringAsFixed(
-                                                    2)}',
-                                                style: TextStyle(fontSize: 16,
-                                                    color: Colors.teal
-                                                        .shade700),
-                                              ),
-                                              Text(
-                                                'Status: ${table['orderStatus']}',
-                                                style: TextStyle(
-                                                    color: Colors.grey
-                                                        .shade600),
-                                              ),
-                                            ],
+                                      textAlign: TextAlign.center,
+                                    ),
+                                    Spacer(),
+                                    SizedBox(height: 12),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton(
+                                        onPressed: () => openPaymentModal(table),
+                                        style: ElevatedButton.styleFrom(
+                                          elevation: 3,
+                                          backgroundColor: Color(0xFF4CB050),
+                                          foregroundColor: Colors.white,
+                                          padding: EdgeInsets.symmetric(vertical: 12),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(10),
                                           ),
                                         ),
-                                        IconButton(
-                                          icon: Icon(Icons.arrow_drop_up,
-                                              color: Colors.teal.shade700),
-                                          onPressed: () =>
-                                              openPaymentModal(table),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.payment, size: 18),
+                                            SizedBox(width: 8),
+                                            Text(
+                                              'Pay ₹${totalPrice.toStringAsFixed(2)}',
+                                              style: TextStyle(fontWeight: FontWeight.w600),
+                                            ),
+                                          ],
                                         ),
-                                      ],
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -708,6 +756,14 @@ class _BillingScreenState extends State<BillingScreen> {
                         );
                       },
                     );
+
+
+
+
+
+
+
+
                   },
                 ),
               ),
@@ -717,10 +773,12 @@ class _BillingScreenState extends State<BillingScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          /* your add-table */
+          // TODO: Add table
         },
-        backgroundColor: Colors.teal.shade700,
+        backgroundColor: Color(0xFF4CB050),
         child: Icon(Icons.add),
       ),
     );
-  }}
+  }
+  }
+
