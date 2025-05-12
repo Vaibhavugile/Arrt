@@ -136,9 +136,14 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
 
         return true;
       }).toList();
+      DateTime _parseDate(dynamic ts) {
+        if (ts is Timestamp) return ts.toDate();
+        if (ts is String) return DateTime.tryParse(ts) ?? DateTime(2000);
+        return DateTime(2000);
+      }
       filteredHistory.sort((a, b) {
-        final aTime = (a['timestamp'] as Timestamp?)?.toDate() ?? DateTime(2000);
-        final bTime = (b['timestamp'] as Timestamp?)?.toDate() ?? DateTime(2000);
+        final aTime = _parseDate(a['timestamp']);
+        final bTime = _parseDate(b['timestamp']);
         return bTime.compareTo(aTime); // Descending
       });
 
@@ -212,6 +217,88 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
       },
     );
   }
+  Future<void> markAsSettled(Map<String, dynamic> entry) async {
+    String selectedMethod = ''; // Default value
+    List<String> paymentMethods = ['Cash', 'Card', 'UPI'];
+
+    // Show a dialog to let the user choose the payment method
+    await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Choose Payment Method'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: paymentMethods.map((method) {
+              return RadioListTile<String>(
+                title: Text(method),
+                value: method,
+                groupValue: selectedMethod,
+                onChanged: (value) {
+                  setState(() {
+                    selectedMethod = value ?? '';
+                  });
+                  Navigator.pop(context, selectedMethod);
+                },
+              );
+            }).toList(),
+          ),
+        );
+      },
+    ).then((value) {
+      if (value != null) {
+        selectedMethod = value;
+        // Proceed with updating the payment method to selectedMethod
+        _updatePaymentMethod(entry, selectedMethod);
+      }
+    });
+  }
+  Future<void> _updatePaymentMethod(Map<String, dynamic> entry, String selectedMethod) async {
+    try {
+      final tableNumber = entry['tableNumber'];
+      final timestamp = entry['timestamp'];
+
+      final tablesRef = FirebaseFirestore.instance
+          .collection('tables')
+          .doc(branchCode)
+          .collection('tables');
+
+      final tablesSnapshot = await tablesRef
+          .where('tableNumber', isEqualTo: tableNumber)
+          .get();
+
+      if (tablesSnapshot.docs.isNotEmpty) {
+        final tableDoc = tablesSnapshot.docs.first;
+
+        final ordersRef = tableDoc.reference.collection('orders');
+        final ordersSnapshot = await ordersRef
+            .where('timestamp', isEqualTo: timestamp)
+            .get();
+
+        if (ordersSnapshot.docs.isNotEmpty) {
+          final orderDoc = ordersSnapshot.docs.first;
+          await orderDoc.reference.update({
+            'payment.method': selectedMethod,
+            'payment.status': 'Paid', // Optionally set the status to Paid
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Marked as Settled with $selectedMethod')),
+          );
+
+          fetchPaymentHistory(); // refresh the list
+        }
+      }
+    } catch (e) {
+      print('Error updating payment method: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update payment method')),
+      );
+    }
+  }
+
+
+
 
   Future<void> exportCSV() async {
     List<List<String>> csvData = [
@@ -376,7 +463,7 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                           children: [
                             Expanded(
                               child: DropdownButton<String>(
-                                value: selectedMethod,
+                                value: methods.contains(selectedMethod) ? selectedMethod : null,
                                 hint: Text('Method'),
                                 isExpanded: true,
                                 items: methods.map((method) {
@@ -396,7 +483,7 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                             SizedBox(width: 16),
                             Expanded(
                               child: DropdownButton<String>(
-                                value: selectedStatus,
+                                value: statuses.contains(selectedStatus) ? selectedStatus : null,
                                 hint: Text('Status'),
                                 isExpanded: true,
                                 items: statuses.map((status) {
@@ -416,7 +503,7 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                             SizedBox(width: 16),
                             Expanded(
                               child: DropdownButton<String>(
-                                value: selectedResponsible,
+                                value: responsibles.contains(selectedResponsible) ? selectedResponsible : null,
                                 hint: Text('Responsible'),
                                 isExpanded: true,
                                 items: responsibles.map((responsible) {
@@ -435,6 +522,7 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                             ),
                           ],
                         ),
+
 
                         SizedBox(height: 16),
                         ElevatedButton.icon(
@@ -492,36 +580,64 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                     }
 
                     return Animate(
-                      effects: [FadeEffect(duration: 600.ms), MoveEffect(begin: Offset(0, 20))],
-                      child: Card(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 4,
-                        margin: EdgeInsets.symmetric(vertical: 8),
-                        child: ListTile(
-                          title: Text('Table ${entry['tableNumber']}'),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${entry['method']} | ${entry['status']} | ${entry['responsible']}',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                              SizedBox(height: 4),
-                              Text(
-                                'Time: $timestamp',
-                                style: TextStyle(fontSize: 12, color: Colors.blueGrey),
-                              ),
-                            ],
+                      effects: [
+                        FadeEffect(duration: 600.ms),
+                        MoveEffect(begin: Offset(0, 20))
+                      ],
+                      child: GestureDetector(
+                        onTap: () => showOrders(entry['orders']),
+                        child: Card(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          trailing: Text('₹${entry['total']}'),
-                          onTap: () => showOrders(entry['orders']),
+                          elevation: 4,
+                          margin: EdgeInsets.symmetric(vertical: 8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Left side: table info
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Table ${entry['tableNumber']}',
+                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                      ),
+                                      Text(
+                                        '${entry['method']} | ${entry['status']} | ${entry['responsible']}',
+                                        style: TextStyle(color: Colors.grey),
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        'Time: $timestamp',
+                                        style: TextStyle(fontSize: 12, color: Colors.blueGrey),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Right side: amount + action button
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text('₹${entry['total']}'),
+                                    if (entry['method'].toString().toLowerCase() == 'due')
+                                      TextButton(
+                                        onPressed: () => markAsSettled(entry),
+                                        child: Text('Mark as Settled'),
+                                        style: TextButton.styleFrom(foregroundColor: Colors.green),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-
                       ),
-
                     );
+
                   },
                 ),
 
