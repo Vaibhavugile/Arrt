@@ -7,16 +7,17 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:art/screens/AddProductScreen.dart';
 import 'package:art/screens/EditProductScreen.dart';
-
+import'package:art/providers/user_provider.dart';
+import 'package:provider/provider.dart';
 class ProductScreen extends StatefulWidget {
   @override
   State<ProductScreen> createState() => _ProductScreenState();
 }
 
 class _ProductScreenState extends State<ProductScreen> {
-  final String branchCode = '3333';
   List<Map<String, dynamic>> allProducts = [];
   List<Map<String, dynamic>> filteredProducts = [];
+  late String branchCode;
   String searchQuery = '';
   String selectedSubcategory = 'All';
   List<String> subcategories = ['All'];
@@ -28,7 +29,14 @@ class _ProductScreenState extends State<ProductScreen> {
   @override
   void initState() {
     super.initState();
-    listenToProducts();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      setState(() {
+        branchCode = userProvider.branchCode!;
+      });
+
+      listenToProducts();
+    });
   }
 
   @override
@@ -250,7 +258,7 @@ class _ProductScreenState extends State<ProductScreen> {
                                 MaterialPageRoute(
                                   builder: (context) => EditProductScreen(
                                     productId: p['id'],
-                                      branchCode: '3333'// Assuming `p['id']` is the ID of the product you want to edit
+                                      branchCode: branchCode// Assuming `p['id']` is the ID of the product you want to edit
                                   ),
                                 ),
                               ),

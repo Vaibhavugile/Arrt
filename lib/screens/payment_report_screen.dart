@@ -5,6 +5,9 @@ import 'package:csv/csv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
+import'package:art/providers/user_provider.dart';
+import 'package:provider/provider.dart';
+
 
 class PaymentReportScreen extends StatefulWidget {
   @override
@@ -14,7 +17,7 @@ class PaymentReportScreen extends StatefulWidget {
 class _PaymentReportScreenState extends State<PaymentReportScreen> {
   List<Map<String, dynamic>> paymentHistory = [];
   List<Map<String, dynamic>> filteredHistory = [];
-  String branchCode = '3333';
+  late String branchCode;
   DateTime? fromDate;
   DateTime? toDate;
   String searchTerm = '';
@@ -33,7 +36,13 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
   @override
   void initState() {
     super.initState();
-    fetchPaymentHistory();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      setState(() {
+        branchCode = userProvider.branchCode!;
+      });
+      fetchPaymentHistory();
+    });
   }
 
   Future<void> fetchPaymentHistory() async {

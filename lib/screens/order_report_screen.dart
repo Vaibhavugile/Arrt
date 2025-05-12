@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:csv/csv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import'package:art/providers/user_provider.dart';
+import 'package:provider/provider.dart';
 
 class OrderReportScreen extends StatefulWidget {
   @override
@@ -18,12 +20,18 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
   DateTime? toDate;
   String searchTerm = '';
   bool isLoading = true;
-  String branchCode = '3333';
+  late String branchCode;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      setState(() {
+        branchCode = userProvider.branchCode!;
+      });
     fetchOrderHistory();
+    });
   }
 
   Future<void> fetchOrderHistory() async {

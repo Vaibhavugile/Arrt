@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import'package:art/providers/user_provider.dart';
+import 'package:provider/provider.dart';
 
 class MenuPage extends StatefulWidget {
   final String tableId;
@@ -11,7 +13,7 @@ class MenuPage extends StatefulWidget {
 }
 
 class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
-  static const branchCode = '3333';
+  late String branchCode;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   List<Map<String, dynamic>> products = [];
@@ -30,8 +32,14 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      setState(() {
+        branchCode = userProvider.branchCode!;
+      });
     _loadProducts();
     _listenToTable();
+    });
   }
 
   Future<void> _loadProducts() async {

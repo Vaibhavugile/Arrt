@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
+import'package:art/providers/user_provider.dart';
+import 'package:provider/provider.dart';
 
 class AddStockScreen extends StatefulWidget {
   const AddStockScreen({super.key});
@@ -11,7 +13,7 @@ class AddStockScreen extends StatefulWidget {
 }
 
 class _AddStockScreenState extends State<AddStockScreen> {
-  String branchCode = '3333';
+  late String branchCode;
   List<DocumentSnapshot> vendors = [];
   List<String> categories = [];
   List<DocumentSnapshot> items = [];
@@ -27,8 +29,16 @@ class _AddStockScreenState extends State<AddStockScreen> {
 
   @override
   void initState() {
+
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      setState(() {
+        branchCode = userProvider.branchCode!;
+      });
+
     fetchVendors();
+    });
   }
 
   Future<void> fetchVendors() async {

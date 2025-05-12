@@ -8,6 +8,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:ui';
 import 'package:art/screens/AddTable.dart';
+import'package:art/providers/user_provider.dart';
+import 'package:provider/provider.dart';
 
 
 class BillingScreen extends StatefulWidget {
@@ -17,7 +19,7 @@ class BillingScreen extends StatefulWidget {
 
 class _BillingScreenState extends State<BillingScreen> {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final String branchCode = '3333';
+  late String branchCode;
 
   List<Map<String, dynamic>> tables = [];
   Map<String, dynamic>? selectedTable;
@@ -28,8 +30,15 @@ class _BillingScreenState extends State<BillingScreen> {
   final BlueThermalPrinter bluetoothPrinter = BlueThermalPrinter.instance;
   @override
   void initState() {
+
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      setState(() {
+        branchCode = userProvider.branchCode!;
+      });
     fetchTables();
+    });
   }
 
   Future<void> fetchTables() async {
