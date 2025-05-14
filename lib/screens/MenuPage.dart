@@ -1,9 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import'package:art/providers/user_provider.dart';
+import 'package:art/providers/user_provider.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
+
 class MenuPage extends StatefulWidget {
   final String tableId;
   const MenuPage({Key? key, required this.tableId}) : super(key: key);
@@ -18,10 +19,9 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
 
   List<Map<String, dynamic>> products = [];
   Map<String, List<Map<String, dynamic>>> grouped = {};
-  List<Map<String, dynamic>> searchResults = [];
   String? selectedSubcategory;
 
-  List<Map<String, dynamic>> orders = [];
+  final ValueNotifier<List<Map<String, dynamic>>> _ordersNotifier = ValueNotifier([]);
   String? tableNumber;
   String? orderStatus;
 
@@ -34,11 +34,9 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
-      setState(() {
-        branchCode = userProvider.branchCode!;
-      });
-    _loadProducts();
-    _listenToTable();
+      branchCode = userProvider.branchCode!;
+      _loadProducts();
+      _listenToTable();
     });
   }
 
@@ -63,9 +61,8 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
       selectedSubcategory = map.keys.first;
       _tabController = TabController(length: map.keys.length, vsync: this);
       _tabController!.addListener(() {
-        setState(() {
-          selectedSubcategory = grouped.keys.elementAt(_tabController!.index);
-        });
+        selectedSubcategory = grouped.keys.elementAt(_tabController!.index);
+        setState(() {});
       });
     });
   }
@@ -80,11 +77,10 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
         .listen((snap) {
       final data = snap.data();
       if (data != null && mounted) {
-        setState(() {
-          tableNumber = data['tableNumber']?.toString();
-          orderStatus = data['orderStatus']?.toString();
-          orders = List<Map<String, dynamic>>.from(data['orders'] ?? []);
-        });
+        _ordersNotifier.value = List<Map<String, dynamic>>.from(data['orders'] ?? []);
+        tableNumber = data['tableNumber']?.toString();
+        orderStatus = data['orderStatus']?.toString();
+        setState(() {});
       }
     });
   }
@@ -95,63 +91,56 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
         .doc(branchCode)
         .collection('tables')
         .doc(widget.tableId)
-        .update({'orders': orders});
+        .update({'orders': _ordersNotifier.value});
   }
 
   void _addProduct(String productId, BuildContext ctx, GlobalKey key) {
     final prod = products.firstWhere((p) => p['id'] == productId);
+    final orders = [..._ordersNotifier.value];
     final idx = orders.indexWhere((o) => o['name'] == prod['name']);
-    setState(() {
-      if (idx >= 0) {
-        orders[idx]['quantity'] += 1;
-      } else {
-        orders.add({
-          'name': prod['name'],
-          'price': prod['price'],
-          'quantity': 1,
-          'ingredients': prod['ingredients'] ?? [],
-        });
-      }
-    });
+
+    if (idx >= 0) {
+      orders[idx]['quantity'] += 1;
+    } else {
+      orders.add({
+        'name': prod['name'],
+        'price': prod['price'],
+        'quantity': 1,
+        'ingredients': prod['ingredients'] ?? [],
+      });
+    }
+
+    _ordersNotifier.value = orders;
     _updateOrders();
     _runAddToCartAnimation(ctx, key);
   }
 
-  Timer? _debounce;
-
   void _changeQuantity(int idx, int delta) {
-    setState(() {
-      final newQty = (orders[idx]['quantity'] ?? 0) + delta;
-      if (newQty <= 0) {
-        orders.removeAt(idx);
-      } else {
-        orders[idx]['quantity'] = newQty;
-      }
-    });
-
-    // Run after the frame (doesn't block UI)
+    final orders = [..._ordersNotifier.value];
+    final newQty = (orders[idx]['quantity'] ?? 0) + delta;
+    if (newQty <= 0) {
+      orders.removeAt(idx);
+    } else {
+      orders[idx]['quantity'] = newQty;
+    }
+    _ordersNotifier.value = orders;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _updateOrders(); // This runs after UI update
+      _updateOrders();
     });
   }
-
-
-
 
   void _runAddToCartAnimation(BuildContext context, GlobalKey targetKey) {
     final overlay = Overlay.of(context);
     final renderBox = context.findRenderObject() as RenderBox;
     final start = renderBox.localToGlobal(Offset.zero);
-
     final cartRender = targetKey.currentContext?.findRenderObject() as RenderBox?;
     final end = cartRender?.localToGlobal(Offset.zero) ?? Offset(20, 40);
 
-    final overlayEntry = OverlayEntry(builder: (context) {
-      return AnimatedAddToCart(
-        start: start,
-        end: end,
-      );
-    });
+    final overlayEntry = OverlayEntry(
+      builder: (context) {
+        return AnimatedAddToCart(start: start, end: end);
+      },
+    );
 
     overlay.insert(overlayEntry);
     Future.delayed(Duration(milliseconds: 800), () {
@@ -167,73 +156,75 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.4,
-        minChildSize: 0.2,
-        maxChildSize: 0.85,
-        expand: false,
-        builder: (_, controller) => Padding(
-          padding: EdgeInsets.all(12),
-          child: ListView(
-            controller: controller,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(20),
+      builder: (context) => ValueListenableBuilder<List<Map<String, dynamic>>>(
+        valueListenable: _ordersNotifier,
+        builder: (context, orders, _) => DraggableScrollableSheet(
+          initialChildSize: 0.4,
+          minChildSize: 0.2,
+          maxChildSize: 0.85,
+          expand: false,
+          builder: (_, controller) => Padding(
+            padding: EdgeInsets.all(12),
+            child: ListView(
+              controller: controller,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                   ),
                 ),
-              ),
-              SizedBox(height: 16),
-              Text('Current Order',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              SizedBox(height: 8),
-              if (orders.isEmpty)
-                Center(
-                    child: Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Text('No items yet', style: TextStyle(color: Colors.grey))))
-              else
-                ...orders.asMap().entries.map((e) {
-                  final idx = e.key;
-                  final o = e.value;
-                  return Padding(
-                    padding: EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '${o['quantity']} x ${o['name']}',
-                            style: const TextStyle(fontSize: 16),
-                            overflow: TextOverflow.ellipsis,
+                SizedBox(height: 16),
+                Text('Current Order',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                SizedBox(height: 8),
+                if (orders.isEmpty)
+                  Center(child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('No items yet', style: TextStyle(color: Colors.grey)),
+                  ))
+                else
+                  ...orders.asMap().entries.map((e) {
+                    final idx = e.key;
+                    final o = e.value;
+                    return Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${o['quantity']} x ${o['name']}',
+                              style: const TextStyle(fontSize: 16),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                        Text(
-                          '₹${(o['price'] * o['quantity']).toStringAsFixed(2)}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.remove_circle_outline),
-                              onPressed: () => _changeQuantity(idx, -1),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.add_circle_outline),
-                              onPressed: () => _changeQuantity(idx, 1),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-
-                  );
-                }),
-            ],
+                          Text(
+                            '₹${(o['price'] * o['quantity']).toStringAsFixed(2)}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove_circle_outline),
+                                onPressed: () => _changeQuantity(idx, -1),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.add_circle_outline),
+                                onPressed: () => _changeQuantity(idx, 1),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+              ],
+            ),
           ),
         ),
       ),
@@ -307,13 +298,11 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
                           label: Text(sub),
                           selected: isSelected,
                           onSelected: (_) {
-                            setState(() {
-                              selectedSubcategory = sub;
-                              final index = subcategories.indexOf(sub);
-                              _tabController?.animateTo(index);
-                            });
+                            selectedSubcategory = sub;
+                            _tabController?.animateTo(subcategories.indexOf(sub));
+                            setState(() {});
                           },
-                          selectedColor:  Color(0xFF4CB050),
+                          selectedColor: Color(0xFF4CB050),
                           labelStyle: TextStyle(
                             color: isSelected ? Colors.white : Colors.black87,
                           ),
@@ -341,11 +330,9 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
           ),
           itemBuilder: (ctx, i) {
             final p = _visibleProducts[i];
-            final key = GlobalKey();
             return GestureDetector(
               onTap: () => _addProduct(p['id'], ctx, cartKey),
               child: Card(
-                key: key,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12)),
                 elevation: 3,
@@ -359,7 +346,8 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
                               fontWeight: FontWeight.bold, fontSize: 16)),
                       Spacer(),
                       Text('₹${p['price']}',
-                          style: TextStyle(color:  Color(0xFF4CB050), fontSize: 14)),
+                          style: TextStyle(
+                              color: Color(0xFF4CB050), fontSize: 14)),
                     ],
                   ),
                 ),
@@ -368,21 +356,21 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
           },
         ),
       ),
-      floatingActionButton: orders.isNotEmpty
-          ? FloatingActionButton.extended(
-        onPressed: _showCartSheet,
-        label: Text('View Cart (${orders.length})'),
-        icon: Icon(Icons.shopping_cart),
-        backgroundColor:  Color(0xFF4CB050),
-      )
-          : null,
+      floatingActionButton: ValueListenableBuilder<List<Map<String, dynamic>>>(
+        valueListenable: _ordersNotifier,
+        builder: (context, orders, _) => orders.isNotEmpty
+            ? FloatingActionButton.extended(
+          onPressed: _showCartSheet,
+          label: Text('View Cart (${orders.length})'),
+          icon: Icon(Icons.shopping_cart),
+          backgroundColor: Color(0xFF4CB050),
+        )
+            : SizedBox.shrink(),
+      ),
     );
   }
 }
 
-// ----------------------------------------
-// Animated flying icon
-// ----------------------------------------
 class AnimatedAddToCart extends StatefulWidget {
   final Offset start;
   final Offset end;

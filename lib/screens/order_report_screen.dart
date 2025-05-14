@@ -302,10 +302,26 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          DateFormat('EEEE, MMM d, yyyy').format(DateTime.parse(dateKey)),
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              DateFormat('EEEE, MMM d, yyyy').format(DateTime.parse(dateKey)),
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Subtotal: ₹${dayTotal.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green[700],
+                                fontSize: 16,
+                              ),
+                            ),
+                            SizedBox(height: 5),
+                          ],
                         ),
+
                         SizedBox(height: 5),
                         ...entries.map((entry) {
                           final ts = entry['timestamp'];
@@ -350,12 +366,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                             ),
                           );
                         }).toList(),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4.0),
-                          child: Text('Subtotal: ₹${dayTotal.toStringAsFixed(2)}',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, color: Colors.green)),
-                        ),
+
                         Divider(),
                       ],
                     );

@@ -130,18 +130,40 @@ class _VendorScreenState extends State<VendorScreen> {
                 children: [
                   ListTile(
                     title: Text(vendor['name'] ?? 'No Name'),
-                    subtitle: Text(() {
-                      final total = stockDetails.fold<double>(
-                        0.0,
-                            (sum, item) => sum + (double.tryParse(item['price']?.toString() ?? '0') ?? 0.0),
-                      );
-                      final totalPaid = comments.fold<double>(
-                        0.0,
-                            (sum, c) => sum + (double.tryParse(c['amountPaid']?.toString() ?? '0') ?? 0.0),
-                      );
-                      final pending = total - totalPaid;
-                      return 'Total: ₹${total.toStringAsFixed(2)} | Paid: ₹${totalPaid.toStringAsFixed(2)} | Pending: ₹${pending.toStringAsFixed(2)}';
-                    }()),
+                    subtitle: Builder(
+                      builder: (_) {
+                        final total = stockDetails.fold<double>(
+                          0.0,
+                              (sum, item) => sum + (double.tryParse(item['price']?.toString() ?? '0') ?? 0.0),
+                        );
+                        final totalPaid = comments.fold<double>(
+                          0.0,
+                              (sum, c) => sum + (double.tryParse(c['amountPaid']?.toString() ?? '0') ?? 0.0),
+                        );
+                        final pending = total - totalPaid;
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Total: ₹${total.toStringAsFixed(2)}',
+                              style: TextStyle(color: Colors.blue[800], fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              'Paid: ₹${totalPaid.toStringAsFixed(2)}',
+                              style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.w600),
+                            ),
+                            Text(
+                              'Pending: ₹${pending.toStringAsFixed(2)}',
+                              style: TextStyle(color: Colors.red[700], fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+
+
+
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

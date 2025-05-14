@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Firebase Firestore import
-import 'package:flutter/services.dart'; // For CSV export
-import '../../providers/user_provider.dart'; // Assuming your user provider
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/services.dart';
+import '../../providers/user_provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:csv/csv.dart';
-import 'dart:io';  // This is needed for File operations
-import 'package:intl/intl.dart'; // For DateFormat
+import 'dart:io';
+import 'package:intl/intl.dart';
 import 'package:art/screens/AddInventoryScreen.dart';
 import 'package:art/screens/EditInventoryScreen.dart';
 import 'package:art/screens/AddStockScreen.dart';
@@ -15,6 +15,7 @@ import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:open_file/open_file.dart';
+
 class InventoryScreen extends StatefulWidget {
   @override
   _InventoryScreenState createState() => _InventoryScreenState();
@@ -25,9 +26,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
   List<Map<String, dynamic>> inventoryItems = [];
   Map<String, List<Map<String, dynamic>>> inventoryHistory = {};
   String? selectedItemId;
-  String searchQuery = '';
-  int currentPage = 1;
-  int itemsPerPage = 10;
 
   @override
   void initState() {
@@ -55,15 +53,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
         inventoryItems = items;
       });
 
-      // Fetch history for each item
       for (final item in items) {
         final historyRef = inventoryRef.doc(item['id']).collection('History');
         final historySnap = await historyRef.get();
         final historyList = historySnap.docs
             .map((h) => h.data())
             .toList()
-          ..sort((a, b) =>
-              (b['updatedAt'] as Timestamp).compareTo(a['updatedAt'] as Timestamp));
+          ..sort((a, b) => (b['updatedAt'] as Timestamp).compareTo(a['updatedAt'] as Timestamp));
 
         setState(() {
           inventoryHistory[item['id']] = List<Map<String, dynamic>>.from(historyList);
@@ -80,8 +76,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   void deleteItem(String id) async {
     final userData = Provider.of<UserProvider>(context, listen: false).userData;
-    final branchCode = userData?['branchCode']; // Safely access branchCode
-
+    final branchCode = userData?['branchCode'];
     try {
       await FirebaseFirestore.instance
           .collection('tables')
@@ -100,7 +95,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   String formatDate(dynamic timestamp) {
     if (timestamp is Timestamp) {
-      return timestamp.toDate().toLocal().toString();
+      return DateFormat('dd/MM/yyyy hh:mm a').format(timestamp.toDate());
     }
     return '';
   }
@@ -156,14 +151,24 @@ class _InventoryScreenState extends State<InventoryScreen> {
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: Color(0xFF4CB050),
-          title: Text('Inventory', style: TextStyle(color: Colors.white),),
-          iconTheme: IconThemeData(color: Colors.white), // optional: makes back icon white too
-
+          title: Text('Inventory', style: TextStyle(color: Colors.white)),
+          iconTheme: IconThemeData(color: Colors.white),
           actions: [
             IconButton(
               icon: Icon(Icons.search),
               onPressed: () async {
-                showSearch(context: context, delegate: InventorySearchDelegate());
+                final result = await showSearch(
+                  context: context,
+                  delegate: InventorySearchDelegate(),
+                );
+                if (result != null) {
+                  final item = inventoryItems.firstWhere((item) => item['id'] == result, orElse: () => {});
+                  if (item.isNotEmpty) {
+                    setState(() {
+                      selectedItemId = item['id'];
+                    });
+                  }
+                }
               },
             ),
           ],
@@ -202,7 +207,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
             SpeedDialChild(
               child: Icon(Icons.download),
-              label: 'Export to CSV',
+              label: 'Export to PDF',
               backgroundColor: Colors.indigo,
               onTap: () => exportToPDF(inventoryItems, context),
             ),
@@ -245,7 +250,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               ),
                             ),
                           ),
-
                           IconButton(
                             icon: Icon(Icons.delete),
                             onPressed: () => deleteItem(item['id']),
@@ -317,55 +321,54 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 }
 
-class InventorySearchDelegate extends SearchDelegate {
+class InventorySearchDelegate extends SearchDelegate<String?> {
   @override
-  List<Widget> buildActions(BuildContext context) {
-    return [
-      IconButton(
-        icon: Icon(Icons.clear),
-        onPressed: () {
-          query = '';
-        },
-      ),
-    ];
+  String get searchFieldLabel => 'Search inventory...';
+
+  @override
+  List<Widget>? buildActions(BuildContext context) {
+    return [IconButton(icon: Icon(Icons.clear), onPressed: () => query = '')];
   }
 
   @override
-  Widget buildLeading(BuildContext context) {
-    return IconButton(
-      icon: Icon(Icons.arrow_back),
-      onPressed: () {
-        close(context, null);
-      },
-    );
+  Widget? buildLeading(BuildContext context) {
+    return IconButton(icon: Icon(Icons.arrow_back), onPressed: () => close(context, null));
   }
 
   @override
   Widget buildResults(BuildContext context) {
-    return FutureBuilder<List<Map<String, dynamic>>>(future: _fetchSearchResults(query, context),
+    final userData = Provider.of<UserProvider>(context, listen: false).userData;
+    final branchCode = userData?['branchCode'];
+    if (branchCode == null) return Center(child: Text('Branch code missing'));
+
+    final inventoryRef = FirebaseFirestore.instance
+        .collection('tables')
+        .doc(branchCode)
+        .collection('Inventory');
+
+    return FutureBuilder<QuerySnapshot>(
+      future: inventoryRef
+          .where('ingredientName', isGreaterThanOrEqualTo: query)
+          .where('ingredientName', isLessThan: query + 'z')
+          .get(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting)
           return Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-        final searchResults = snapshot.data ?? [];
-        if (searchResults.isEmpty) {
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty)
           return Center(child: Text('No results found.'));
-        }
-        return ListView.builder(
-          itemCount: searchResults.length,
-          itemBuilder: (context, index) {
-            final item = searchResults[index];
+
+        final results = snapshot.data!.docs;
+
+        return ListView(
+          children: results.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
             return ListTile(
-              title: Text(item['ingredientName'] ?? ''),
-              subtitle: Text(item['category'] ?? ''),
-              onTap: () {
-                close(context, item['ingredientName']);
-              },
+              title: Text(data['ingredientName'] ?? ''),
+              subtitle: Text(data['category'] ?? ''),
+              onTap: () => close(context, doc.id),
             );
-          },
+          }).toList(),
         );
       },
     );
@@ -373,19 +376,83 @@ class InventorySearchDelegate extends SearchDelegate {
 
   @override
   Widget buildSuggestions(BuildContext context) {
-    return Container();
-  }
-
-  Future<List<Map<String, dynamic>>> _fetchSearchResults(String query, BuildContext context) async {
     final userData = Provider.of<UserProvider>(context, listen: false).userData;
-    if (userData == null || userData['branchCode'] == null) return [];
-    final branchCode = userData['branchCode'];
-    final inventoryRef = FirebaseFirestore.instance.collection('tables').doc(branchCode).collection('Inventory');
-    final snapshot = await inventoryRef
-        .where('ingredientName', isGreaterThanOrEqualTo: query)
-        .where('ingredientName', isLessThan: query + 'z')
-        .get();
+    final branchCode = userData?['branchCode'];
+    if (branchCode == null) return Center(child: Text('Branch code missing'));
 
-    return snapshot.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+    if (query.isEmpty) {
+      return Center(child: Text('Start typing to search inventory...'));
+    }
+
+    final inventoryRef = FirebaseFirestore.instance
+        .collection('tables')
+        .doc(branchCode)
+        .collection('Inventory');
+
+    return FutureBuilder<QuerySnapshot>(
+      future: inventoryRef
+          .where('ingredientName', isGreaterThanOrEqualTo: query)
+          .where('ingredientName', isLessThan: query + 'z')
+          .get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(child: Text('No matching inventory found.'));
+        }
+
+        final results = snapshot.data!.docs;
+
+        return ListView.builder(
+          padding: EdgeInsets.all(12),
+          itemCount: results.length,
+          itemBuilder: (context, index) {
+            final doc = results[index];
+            final item = {'id': doc.id, ...doc.data() as Map<String, dynamic>};
+            final lastUpdated = (item['lastUpdated'] as Timestamp?)?.toDate();
+            final lastUpdatedStr = lastUpdated != null
+                ? '${lastUpdated.day}/${lastUpdated.month}/${lastUpdated.year} ${lastUpdated.hour}:${lastUpdated.minute}'
+                : 'N/A';
+
+            return Card(
+              elevation: 3,
+              margin: EdgeInsets.only(bottom: 16),
+              child: Padding(
+                padding: EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(item['ingredientName'] ?? '', style: TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text('Category: ${item['category'] ?? ''}'),
+                      trailing: Icon(Icons.arrow_forward_ios, size: 18),
+                      onTap: () {
+                        close(context, item['ingredientName']);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => EditInventoryScreen(
+                              documentId: item['id'],
+                              data: item,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    Text('Last Updated: $lastUpdatedStr'),
+                    Text('Quantity: ${item['quantity']} ${item['unit']}'),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
+
+
 }

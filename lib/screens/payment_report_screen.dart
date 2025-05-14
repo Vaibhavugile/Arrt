@@ -607,16 +607,28 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                 ),
                 SizedBox(height: 16),
                 // Total Cards
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
+                Column(
                   children: [
-                    _buildTotalCard(Icons.money, 'Cash', totals['Cash']!),
-                    _buildTotalCard(Icons.credit_card, 'Card', totals['Card']!),
-                    _buildTotalCard(Icons.account_balance_wallet, 'UPI', totals['UPI']!),
-                    _buildTotalCard(Icons.access_time, 'Due', totals['Due']!),
+                    Row(
+                      children: [
+                        Expanded(child: _buildTotalCard(Icons.money, 'Cash', totals['Cash']!)),
+                        SizedBox(width: 16),
+                        Expanded(child: _buildTotalCard(Icons.credit_card, 'Card', totals['Card']!)),
+                      ],
+                    ),
+                    SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(child: _buildTotalCard(Icons.account_balance_wallet, 'UPI', totals['UPI']!)),
+                        SizedBox(width: 16),
+                        Expanded(child: _buildTotalCard(Icons.access_time, 'Due', totals['Due']!)),
+                      ],
+                    ),
                   ],
                 ),
+
+
+
                 SizedBox(height: 16),
                 // Payment History List
                 ListView.builder(
