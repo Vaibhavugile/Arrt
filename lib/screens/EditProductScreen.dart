@@ -178,7 +178,12 @@ class _EditProductScreenState extends State<EditProductScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Edit Product'),
+        backgroundColor: Color(0xFF4CB050),
+        title: Text(
+          'Edit Product',
+          style: TextStyle(color: Colors.white), // 👈 Makes text white
+        ),
+        iconTheme: IconThemeData(color: Colors.white), // optional: makes back icon white too
       ),
       body: Stack(
         children: [
@@ -223,8 +228,8 @@ class _EditProductScreenState extends State<EditProductScreen> {
                     // Update Product Button
                     ElevatedButton.icon(
                       onPressed: updateProduct,
-                      icon: Icon(Icons.save),
-                      label: Text('Update Product'),
+                      icon: Icon(Icons.save,color: Colors.white ,),
+                      label: Text('Update Product',style: TextStyle(color: Colors.white)),
                       style: ElevatedButton.styleFrom(
                         minimumSize: Size(double.infinity, 48),
                         backgroundColor: Theme.of(context).colorScheme.primary,

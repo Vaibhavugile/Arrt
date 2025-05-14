@@ -39,8 +39,11 @@ class _BranchDashboardState extends State<BranchDashboard> {
           : ThemeData.light().copyWith(scaffoldBackgroundColor: Colors.white),
       home: Scaffold(
         appBar: AppBar(
-          title: Text('Branch Dashboard'),
-          backgroundColor: isDarkMode ? Colors.grey[900] : Colors.green,
+
+         title: Text('Branch Dashboard', style: TextStyle(color: Colors.white),),
+          backgroundColor: isDarkMode ? Colors.grey[900] : Color(0xFF4CB050),
+          iconTheme: IconThemeData(color: Colors.white),
+
           actions: [
             IconButton(
               icon: Icon(Icons.logout),

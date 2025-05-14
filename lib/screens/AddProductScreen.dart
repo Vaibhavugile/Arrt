@@ -343,8 +343,14 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
     final categoryList = _allIngredients.map((ing) => ing['category']?.toString() ?? '').toSet().toList();
 
     return Scaffold(
-      appBar: AppBar(title: Text('Add Product')),
-      body: Stack(
+      appBar: AppBar(
+        backgroundColor: Color(0xFF4CB050),
+        title: Text(
+          'Add Product',
+          style: TextStyle(color: Colors.white), // 👈 Makes text white
+        ),
+        iconTheme: IconThemeData(color: Colors.white), // optional: makes back icon white too
+      ),       body: Stack(
         children: [
           AnimatedSwitcher(
             duration: Duration(milliseconds: 400),
@@ -382,8 +388,9 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
                     SizedBox(height: 24),
                     ElevatedButton.icon(
                       onPressed: _submitForm,
-                      icon: Icon(Icons.save),
-                      label: Text('Add Product'),
+                      icon: Icon(Icons.save,color: Colors.white ,),
+
+                      label: Text('Add Product',style: TextStyle(color: Colors.white),),
                       style: ElevatedButton.styleFrom(
                         minimumSize: Size(double.infinity, 48),
                         backgroundColor: Theme.of(context).colorScheme.primary,

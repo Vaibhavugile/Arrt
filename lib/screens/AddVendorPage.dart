@@ -88,8 +88,14 @@ class _AddVendorPageState extends State<AddVendorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Add Vendor')),
-      body: loading
+      appBar: AppBar(
+        backgroundColor: Color(0xFF4CB050),
+        title: Text(
+          'Add vendor',
+          style: TextStyle(color: Colors.white), // 👈 Makes text white
+        ),
+        iconTheme: IconThemeData(color: Colors.white), // optional: makes back icon white too
+      ),      body: loading
           ? Center(child: CircularProgressIndicator())
           : Padding(
         padding: const EdgeInsets.all(16.0),

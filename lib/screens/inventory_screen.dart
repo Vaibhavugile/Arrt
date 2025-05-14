@@ -12,6 +12,9 @@ import 'package:art/screens/AddInventoryScreen.dart';
 import 'package:art/screens/EditInventoryScreen.dart';
 import 'package:art/screens/AddStockScreen.dart';
 import 'package:flutter_speed_dial/flutter_speed_dial.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:open_file/open_file.dart';
 class InventoryScreen extends StatefulWidget {
   @override
   _InventoryScreenState createState() => _InventoryScreenState();
@@ -102,29 +105,48 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return '';
   }
 
-  Future<void> exportToCSV(List<Map<String, dynamic>> inventoryItems, BuildContext context) async {
-    List<List<String>> rows = [];
-    rows.add(["Ingredient Name", "Category", "Quantity", "Unit", "Last Updated"]);
+  Future<void> exportToPDF(List<Map<String, dynamic>> inventoryItems, BuildContext context) async {
+    final pdf = pw.Document();
 
-    for (var item in inventoryItems) {
-      rows.add([
-        item['ingredientName'] ?? '',
-        item['category'] ?? '',
-        item['quantity'].toString(),
-        item['unit'] ?? '',
-        formatDate(item['lastUpdated']),
-      ]);
-    }
-
-    String csvData = const ListToCsvConverter().convert(rows);
-
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/inventory_${DateTime.now().millisecondsSinceEpoch}.csv');
-    await file.writeAsString(csvData);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('CSV exported to ${file.path}')),
+    pdf.addPage(
+      pw.Page(
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text('Inventory Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 16),
+              pw.Table.fromTextArray(
+                headers: ['Ingredient Name', 'Category', 'Quantity', 'Unit', 'Last Updated'],
+                data: inventoryItems.map((item) {
+                  return [
+                    item['ingredientName'] ?? '',
+                    item['category'] ?? '',
+                    item['quantity'].toString(),
+                    item['unit'] ?? '',
+                    formatDate(item['lastUpdated']),
+                  ];
+                }).toList(),
+                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                headerDecoration: pw.BoxDecoration(color: PdfColors.grey300),
+                cellAlignment: pw.Alignment.centerLeft,
+              )
+            ],
+          );
+        },
+      ),
     );
+
+    final outputDir = await getTemporaryDirectory();
+    final file = File('${outputDir.path}/inventory_report_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    await file.writeAsBytes(await pdf.save());
+
+    final result = await OpenFile.open(file.path);
+    if (result.type != ResultType.done) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to open PDF: ${result.message}')),
+      );
+    }
   }
 
   @override
@@ -133,7 +155,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
       effects: [FadeEffect(duration: 500.ms), MoveEffect(begin: Offset(0, 40))],
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Inventory'),
+          backgroundColor: Color(0xFF4CB050),
+          title: Text('Inventory', style: TextStyle(color: Colors.white),),
+          iconTheme: IconThemeData(color: Colors.white), // optional: makes back icon white too
+
           actions: [
             IconButton(
               icon: Icon(Icons.search),
@@ -179,7 +204,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               child: Icon(Icons.download),
               label: 'Export to CSV',
               backgroundColor: Colors.indigo,
-              onTap: () => exportToCSV(inventoryItems, context),
+              onTap: () => exportToPDF(inventoryItems, context),
             ),
           ],
         ),

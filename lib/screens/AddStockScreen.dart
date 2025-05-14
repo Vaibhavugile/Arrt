@@ -171,8 +171,14 @@ class _AddStockScreenState extends State<AddStockScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Stock Entry')),
-      body: Padding(
+      appBar: AppBar(
+        backgroundColor: Color(0xFF4CB050),
+        title: Text(
+          'Add Stock',
+          style: TextStyle(color: Colors.white), // 👈 Makes text white
+        ),
+        iconTheme: IconThemeData(color: Colors.white), // optional: makes back icon white too
+      ),       body: Padding(
         padding: const EdgeInsets.all(16),
         child: ListView(
           children: [

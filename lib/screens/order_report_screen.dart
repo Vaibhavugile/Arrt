@@ -7,6 +7,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import'package:art/providers/user_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:open_file/open_file.dart';
 
 class OrderReportScreen extends StatefulWidget {
   @override
@@ -110,35 +113,57 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
     });
     filterData();
   }
+  Future<void> exportOrderPDF(BuildContext context, List<dynamic> filteredHistory) async {
+    final pdf = pw.Document();
 
-  Future<void> exportCSV() async {
-    List<List<String>> csvData = [
-      ['Item', 'Price', 'Quantity', 'Total', 'Responsible', 'Time']
-    ];
+    pdf.addPage(
+      pw.Page(
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text('Order Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 16),
+              pw.Table.fromTextArray(
+                headers: ['Item', 'Price', 'Qty', 'Total', 'Responsible', 'Time'],
+                data: filteredHistory.map((entry) {
+                  DateTime entryDate = entry['timestamp'] is Timestamp
+                      ? entry['timestamp'].toDate()
+                      : DateTime.tryParse(entry['timestamp'].toString()) ?? DateTime.now();
 
-    for (var entry in filteredHistory) {
-      DateTime entryDate = entry['timestamp'] is Timestamp
-          ? entry['timestamp'].toDate()
-          : DateTime.tryParse(entry['timestamp'].toString()) ?? DateTime.now();
+                  final price = double.tryParse(entry['price'].toString()) ?? 0;
+                  final quantity = int.tryParse(entry['quantity'].toString()) ?? 0;
+                  final total = price * quantity;
 
-      csvData.add([
-        entry['name'],
-        '₹${entry['price'].toStringAsFixed(2)}',
-        '${entry['quantity']}',
-        '₹${(entry['price'] * entry['quantity']).toStringAsFixed(2)}',
-        entry['responsible'],
-        DateFormat('yyyy-MM-dd HH:mm').format(entryDate),
-      ]);
-    }
-
-    String csv = const ListToCsvConverter().convert(csvData);
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/order_report_${DateTime.now().millisecondsSinceEpoch}.csv');
-    await file.writeAsString(csv);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('CSV exported to ${file.path}')),
+                  return [
+                    entry['name'].toString(),
+                    '₹${price.toStringAsFixed(2)}',
+                    quantity.toString(),
+                    '₹${total.toStringAsFixed(2)}',
+                    entry['responsible'].toString(),
+                    DateFormat('yyyy-MM-dd HH:mm').format(entryDate),
+                  ];
+                }).toList(),
+                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                headerDecoration: pw.BoxDecoration(color: PdfColors.grey300),
+                cellAlignment: pw.Alignment.centerLeft,
+              )
+            ],
+          );
+        },
+      ),
     );
+
+    final outputDir = await getTemporaryDirectory();
+    final file = File('${outputDir.path}/order_report_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    await file.writeAsBytes(await pdf.save());
+
+    final result = await OpenFile.open(file.path);
+    if (result.type != ResultType.done) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to open PDF: ${result.message}')),
+      );
+    }
   }
 
   Future<void> pickDate(BuildContext context, bool isFrom) async {
@@ -208,9 +233,14 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       effects: [FadeEffect(duration: 600.ms), MoveEffect(begin: Offset(0, 30))],
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Order Report'),
+          title: Text(
+            'Order Report',
+            style: TextStyle(color: Colors.white), // 👈 Makes text white
+          ),
+          backgroundColor: Color(0xFF4CB050),
+          iconTheme: IconThemeData(color: Colors.white),
           actions: [
-            IconButton(icon: Icon(Icons.download), onPressed: exportCSV),
+            IconButton(icon: Icon(Icons.download),onPressed: () => exportOrderPDF(context, filteredHistory)),
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(

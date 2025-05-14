@@ -9,6 +9,11 @@ import 'package:art/screens/AddProductScreen.dart';
 import 'package:art/screens/EditProductScreen.dart';
 import'package:art/providers/user_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:open_file/open_file.dart';
+import 'dart:io';  // This is needed for File operations
+import 'package:path_provider/path_provider.dart';
 class ProductScreen extends StatefulWidget {
   @override
   State<ProductScreen> createState() => _ProductScreenState();
@@ -132,16 +137,44 @@ class _ProductScreenState extends State<ProductScreen> {
     }
   }
 
-  void exportCSV() {
-    final headers = ['name', 'price', 'subcategory'];
-    final rows = [headers];
-    for (var p in filteredProducts) {
-      rows.add([p['name'], p['price'], p['subcategory']]);
+  void exportToPDF(BuildContext context, List<Map<String, dynamic>> filteredProducts) async {
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page(
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text('Product Export', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 16),
+              pw.Table.fromTextArray(
+                headers: ['Name', 'Price', 'Subcategory'],
+                data: filteredProducts.map((p) => [
+                  p['name']?.toString() ?? '',
+                  p['price']?.toString() ?? '',
+                  p['subcategory']?.toString() ?? ''
+                ]).toList(),
+                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                headerDecoration: pw.BoxDecoration(color: PdfColors.grey300),
+                cellAlignment: pw.Alignment.centerLeft,
+              )
+            ],
+          );
+        },
+      ),
+    );
+
+    final outputDir = await getTemporaryDirectory();
+    final file = File('${outputDir.path}/product_export_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    await file.writeAsBytes(await pdf.save());
+
+    final result = await OpenFile.open(file.path);
+    if (result.type != ResultType.done) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to open PDF: ${result.message}')),
+      );
     }
-    final csv = const ListToCsvConverter().convert(rows);
-    debugPrint(csv);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text('CSV Exported (check console)')));
   }
 
   void loadMore() {
@@ -155,10 +188,12 @@ class _ProductScreenState extends State<ProductScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Products'),
+        title: Text('Products', style: TextStyle(color: Colors.white),),
+        backgroundColor: Color(0xFF4CB050),
+        iconTheme: IconThemeData(color: Colors.white),
         actions: [
           IconButton(icon: Icon(Icons.file_upload), onPressed: importCSV),
-          IconButton(icon: Icon(Icons.file_download), onPressed: exportCSV),
+          IconButton(icon: Icon(Icons.file_download), onPressed: () => exportToPDF(context, filteredProducts),),
         ],
       ),
       floatingActionButton: FloatingActionButton(

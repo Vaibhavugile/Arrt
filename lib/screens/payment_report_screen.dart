@@ -7,7 +7,12 @@ import 'dart:io';
 import 'package:intl/intl.dart';
 import'package:art/providers/user_provider.dart';
 import 'package:provider/provider.dart';
-
+import 'package:open_file/open_file.dart';
+import 'dart:typed_data';
+import 'package:media_store_plus/media_store_plus.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:permission_handler/permission_handler.dart';
 
 class PaymentReportScreen extends StatefulWidget {
   @override
@@ -307,46 +312,93 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
   }
 
 
+  Future<bool> requestStoragePermission(BuildContext context) async {
+    if (Platform.isAndroid) {
+      // Android 10 and below
+      if (await Permission.storage.request().isGranted) return true;
 
+      // Android 11+ requires manual settings navigation
+      if (await Permission.manageExternalStorage.isGranted) return true;
 
-  Future<void> exportCSV() async {
-    List<List<String>> csvData = [
-      ['Table Number', 'Total', 'Discounted Total', 'Method', 'Status', 'Responsible', 'Time']
-    ];
+      var status = await Permission.manageExternalStorage.request();
 
-    for (var entry in filteredHistory) {
-      DateTime entryDate = entry['timestamp'] is Timestamp
-          ? entry['timestamp'].toDate()
-          : DateTime.tryParse(entry['timestamp'].toString()) ?? DateTime.now();
-
-      csvData.add([
-        entry['tableNumber'],
-        '₹${entry['total'].toStringAsFixed(2)}',
-        '₹${entry['discountedTotal'].toStringAsFixed(2)}',
-        entry['method'],
-        entry['status'],
-        entry['responsible'],
-        DateFormat('yyyy-MM-dd HH:mm').format(entryDate),
-      ]);
+      if (status.isGranted) {
+        return true;
+      } else {
+        // Show snackbar with link to settings
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Storage permission is required to export the CSV file.'),
+            action: SnackBarAction(
+              label: 'Open Settings',
+              onPressed: () {
+                openAppSettings(); // Opens app settings page
+              },
+            ),
+          ),
+        );
+        return false;
+      }
+    } else {
+      // iOS/macOS
+      return true;
     }
-
-    final totals = calculateTotals(filteredHistory);
-    csvData.add([]);
-    csvData.add(['Summary']);
-    csvData.add(['Cash Total', '₹${totals['Cash']!.toStringAsFixed(2)}']);
-    csvData.add(['Card Total', '₹${totals['Card']!.toStringAsFixed(2)}']);
-    csvData.add(['Online Total', '₹${totals['UPI']!.toStringAsFixed(2)}']);
-    csvData.add(['Due Total', '₹${totals['Due']!.toStringAsFixed(2)}']);
-
-    String csv = const ListToCsvConverter().convert(csvData);
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/payment_report_${DateTime.now().millisecondsSinceEpoch}.csv');
-    await file.writeAsString(csv);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('CSV exported to ${file.path}')),
-    );
   }
+
+  Future<void> exportPDF(BuildContext context, List<dynamic> filteredHistory) async {
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page(
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text('Payment Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 16),
+              pw.Table.fromTextArray(
+                headers: ['Table', 'Total', 'Discounted', 'Method', 'Status', 'Responsible', 'Time'],
+                data: filteredHistory.map((entry) {
+                  DateTime entryDate = entry['timestamp'] is Timestamp
+                      ? entry['timestamp'].toDate()
+                      : DateTime.tryParse(entry['timestamp'].toString()) ?? DateTime.now();
+
+                  return [
+                    entry['tableNumber'].toString(),
+                    '${entry['total'].toStringAsFixed(2)}',
+                    '${entry['discountedTotal'].toStringAsFixed(2)}',
+                    entry['method'].toString(),
+                    entry['status'].toString(),
+                    entry['responsible'].toString(),
+                    DateFormat('yyyy-MM-dd HH:mm').format(entryDate),
+                  ];
+                }).toList(),
+                cellAlignment: pw.Alignment.centerLeft,
+                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                headerDecoration: pw.BoxDecoration(color: PdfColors.grey300),
+              )
+            ],
+          );
+        },
+      ),
+    );
+
+    final outputDir = await getTemporaryDirectory();
+    final file = File('${outputDir.path}/payment_report_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    await file.writeAsBytes(await pdf.save());
+
+    // Open the PDF directly
+    final result = await OpenFile.open(file.path);
+    if (result.type != ResultType.done) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to open PDF: ${result.message}')),
+      );
+    }
+  }
+
+
+
+
 
   Future<void> pickDate(BuildContext context, bool isFrom) async {
     final picked = await showDatePicker(
@@ -417,10 +469,16 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
       effects: [FadeEffect(duration: 600.ms), MoveEffect(begin: Offset(0, 30))],
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Payment History Report'),
-          backgroundColor: Theme.of(context).primaryColor,
+          title: Text(
+            'Payment Report',
+            style: TextStyle(color: Colors.white), // 👈 Makes text white
+          ),
+          backgroundColor: Color(0xFF4CB050),
+          iconTheme: IconThemeData(color: Colors.white),
           actions: [
-            IconButton(icon: Icon(Icons.download_rounded), onPressed: exportCSV),
+            IconButton(icon: Icon(Icons.download_rounded), onPressed: () {
+              exportPDF(context, filteredHistory);
+            },),
           ],
         ),
         body: isLoading

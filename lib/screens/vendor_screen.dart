@@ -103,8 +103,12 @@ class _VendorScreenState extends State<VendorScreen> {
       effects: [FadeEffect(duration: 600.ms), MoveEffect(begin: Offset(0, 30))],
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Vendor Dashboard'),
-
+          backgroundColor: Color(0xFF4CB050),
+          title: Text(
+            'Vendors',
+            style: TextStyle(color: Colors.white), // 👈 Makes text white
+          ),
+          iconTheme: IconThemeData(color: Colors.white), // optional: makes back icon white too
         ),
         body: loading
             ? Center(child: CircularProgressIndicator())

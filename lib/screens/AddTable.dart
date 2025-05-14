@@ -62,8 +62,14 @@ class _AddTableState extends State<AddTable> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Add New Table")),
-      body: Padding(
+      appBar: AppBar(
+        backgroundColor: Color(0xFF4CB050),
+        title: Text(
+          'Add Table',
+          style: TextStyle(color: Colors.white), // 👈 Makes text white
+        ),
+        iconTheme: IconThemeData(color: Colors.white), // optional: makes back icon white too
+      ),       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [

@@ -124,8 +124,14 @@ class _EditInventoryScreenState extends State<EditInventoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Edit Inventory')),
-      body: SingleChildScrollView(
+      appBar: AppBar(
+        backgroundColor: Color(0xFF4CB050),
+        title: Text(
+          'Edit Inventory',
+          style: TextStyle(color: Colors.white), // 👈 Makes text white
+        ),
+        iconTheme: IconThemeData(color: Colors.white), // optional: makes back icon white too
+      ),       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Card(
           elevation: 4,

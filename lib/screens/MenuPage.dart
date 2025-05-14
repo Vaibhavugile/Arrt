@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import'package:art/providers/user_provider.dart';
 import 'package:provider/provider.dart';
-
+import 'dart:async';
 class MenuPage extends StatefulWidget {
   final String tableId;
   const MenuPage({Key? key, required this.tableId}) : super(key: key);
@@ -117,13 +117,26 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
     _runAddToCartAnimation(ctx, key);
   }
 
+  Timer? _debounce;
+
   void _changeQuantity(int idx, int delta) {
     setState(() {
-      orders[idx]['quantity'] += delta;
-      if (orders[idx]['quantity'] <= 0) orders.removeAt(idx);
+      final newQty = (orders[idx]['quantity'] ?? 0) + delta;
+      if (newQty <= 0) {
+        orders.removeAt(idx);
+      } else {
+        orders[idx]['quantity'] = newQty;
+      }
     });
-    _updateOrders();
+
+    // Run after the frame (doesn't block UI)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateOrders(); // This runs after UI update
+    });
   }
+
+
+
 
   void _runAddToCartAnimation(BuildContext context, GlobalKey targetKey) {
     final overlay = Overlay.of(context);
@@ -190,19 +203,34 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
                   return Padding(
                     padding: EdgeInsets.symmetric(vertical: 4),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(child: Text('${o['quantity']} x ${o['name']}')),
-                        Text('₹${(o['price'] * o['quantity']).toStringAsFixed(2)}'),
-                        IconButton(
-                          icon: Icon(Icons.remove_circle_outline),
-                          onPressed: () => _changeQuantity(idx, -1),
+                        Expanded(
+                          child: Text(
+                            '${o['quantity']} x ${o['name']}',
+                            style: const TextStyle(fontSize: 16),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                        IconButton(
-                          icon: Icon(Icons.add_circle_outline),
-                          onPressed: () => _changeQuantity(idx, 1),
+                        Text(
+                          '₹${(o['price'] * o['quantity']).toStringAsFixed(2)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.remove_circle_outline),
+                              onPressed: () => _changeQuantity(idx, -1),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.add_circle_outline),
+                              onPressed: () => _changeQuantity(idx, 1),
+                            ),
+                          ],
                         ),
                       ],
                     ),
+
                   );
                 }),
             ],
@@ -285,7 +313,7 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
                               _tabController?.animateTo(index);
                             });
                           },
-                          selectedColor: Colors.teal,
+                          selectedColor:  Color(0xFF4CB050),
                           labelStyle: TextStyle(
                             color: isSelected ? Colors.white : Colors.black87,
                           ),
@@ -331,7 +359,7 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
                               fontWeight: FontWeight.bold, fontSize: 16)),
                       Spacer(),
                       Text('₹${p['price']}',
-                          style: TextStyle(color: Colors.teal, fontSize: 14)),
+                          style: TextStyle(color:  Color(0xFF4CB050), fontSize: 14)),
                     ],
                   ),
                 ),
@@ -345,7 +373,7 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
         onPressed: _showCartSheet,
         label: Text('View Cart (${orders.length})'),
         icon: Icon(Icons.shopping_cart),
-        backgroundColor: Colors.teal,
+        backgroundColor:  Color(0xFF4CB050),
       )
           : null,
     );
