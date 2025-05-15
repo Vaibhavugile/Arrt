@@ -1,0 +1,12 @@
+{
+  "@@locale": "en",
+  "branchDashboard": "Branch Dashboard",
+  "billing": "Billing",
+  "products": "Products",
+  "inventory": "Inventory",
+  "vendors": "Vendors",
+  "orderReport": "Order Report",
+  "paymentReport": "Payment Report",
+  "duePayments": "Due Payments",
+  "toggleTheme": "Toggle Theme"
+}

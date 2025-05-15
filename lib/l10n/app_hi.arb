@@ -1,0 +1,12 @@
+{
+  "@@locale": "hi",
+  "branchDashboard": "ब्रांच डैशबोर्ड",
+  "billing": "बिलिंग",
+  "products": "उत्पाद",
+  "inventory": "इन्वेंटरी",
+  "vendors": "विक्रेता",
+  "orderReport": "ऑर्डर रिपोर्ट",
+  "paymentReport": "भुगतान रिपोर्ट",
+  "duePayments": "बकाया भुगतान",
+  "toggleTheme": "थीम बदलें"
+}
