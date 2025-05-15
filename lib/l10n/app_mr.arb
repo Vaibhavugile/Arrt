@@ -4,9 +4,81 @@
   "billing": "बिलिंग",
   "products": "उत्पादने",
   "inventory": "साठा",
-  "vendors": "विक्रेते",
+  "vendors": "पुरवठादार",
   "orderReport": "ऑर्डर अहवाल",
-  "paymentReport": "पैसे भरणा अहवाल",
-  "duePayments": "थकबाकी पेमेंट्स",
-  "toggleTheme": "थीम बदला"
+  "paymentReport": "पेमेंट अहवाल",
+  "duePayments": "थकबाकी पेमेंट",
+  "toggleTheme": "थीम बदला",
+
+  "laCasa": "ला कासा",
+  "noTables": "कोणतेही टेबल उपलब्ध नाहीत.",
+  "tableNumber": "टेबल {number}",
+  "@tableNumber": {
+    "placeholders": {
+      "number": {}
+    }
+  },
+  "payAmount": "₹{amount} चे पेमेंट करा",
+  "@payAmount": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
+  "paymentForTable": "पेमेंट - टेबल {tableNumber}",
+  "@paymentForTable": {
+    "placeholders": {
+      "tableNumber": {}
+    }
+  },
+  "payment": "देयक",
+  "table": "टेबल",
+  "qty": "प्रमाण",
+  "discount": "सवलत",
+  "cash": "रोख",
+  "card": "कार्ड",
+  "upi": "यूपीआय",
+  "due": "थकबाकी",
+  "settled": "पेमेंट पूर्ण",
+  "discountPercent": "सवलत %",
+  "paymentMethod": "पेमेंट पद्धत:",
+  "paymentStatus": "पेमेंट स्थिती:",
+  "responsiblePerson": "जवाबदार व्यक्ती",
+  "savePayment": "पेमेंट सेव्ह करा",
+  "printReceipt": "पावती प्रिंट करा",
+  "noOrdersFound": "ऑर्डर सापडले नाहीत",
+  "total": "एकूण:",
+  "discounted": "सवलतीनंतर:",
+  "addTable": "टेबल जोडा",
+  "paymentSettledMessage": "देय रक्कम यशस्वीरित्या पूर्ण झाली आहे",
+  "paymentDueMessage": "देय रक्कम शिल्लक आहे -",
+  "enterResponsibleName": "कृपया देय देण्यासाठी जबाबदार व्यक्तीचे नाव टाका.",
+  "paymentSaved": "पेमेंट माहिती यशस्वीरित्या सेव्ह झाली.",
+  "errorSavingPayment": "पेमेंट सेव्ह करताना त्रुटी.",
+  "selectPaymentMethodAndStatus": "पेमेंट पद्धत व स्थिती निवडा",
+  "paymentReportTitle": "पेमेंट अहवाल",
+  "filterPayments": "पेमेंट फिल्टर करा",
+  "fromDate": "पासूनची तारीख",
+  "toDate": "पर्यंतची तारीख",
+  "search": "शोधा",
+  "method": "पद्धत",
+  "status": "स्थिती",
+  "responsible": "जबाबदार",
+  "clearFilters": "फिल्टर साफ करा",
+  "time": "वेळ",
+  "notAvailable": "उपलब्ध नाही",
+  "markAsSettled": " settled  करा",
+  "choosePaymentMethod": "पेमेंट पद्धत निवडा",
+  "storagePermissionRequired": "अहवाल निर्यात करण्यासाठी स्टोरेज परवानगी आवश्यक आहे.",
+  "openSettings": "सेटिंग्ज उघडा",
+  "failedToOpenPdf": "पीडीएफ उघडण्यात अयशस्वी",
+  "online": "ऑनलाइन",
+  "paid": "भरणा",
+  "pending": "प्रलंबित",
+  "quantity": "Qty: {qty} x ₹{price}",
+  "@quantity": {
+    "placeholders": {
+      "qty": {},
+      "price": {}
+    }
+  }
 }

@@ -10,6 +10,8 @@ import 'dart:ui';
 import 'package:art/screens/AddTable.dart';
 import'package:art/providers/user_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import '../app.dart'; // Adjust path as needed if app.dart is in /lib
 
 
 class BillingScreen extends StatefulWidget {
@@ -27,6 +29,7 @@ class _BillingScreenState extends State<BillingScreen> {
   String paymentStatus = '';
   String responsibleName = '';
   double discountPercentage = 0.0;
+
   final BlueThermalPrinter bluetoothPrinter = BlueThermalPrinter.instance;
   @override
   void initState() {
@@ -362,8 +365,23 @@ class _BillingScreenState extends State<BillingScreen> {
     }
   }
   Future<void> handleSavePayment() async {
+    final loc = AppLocalizations.of(context)!;
+
     if (selectedTable != null && paymentMethod.isNotEmpty && paymentStatus.isNotEmpty) {
       try {
+        // 🔁 Convert localized strings to English before saving
+        final englishPaymentMethod = {
+          loc.cash: 'Cash',
+          loc.card: 'Card',
+          loc.upi: 'UPI',
+          loc.due: 'Due',
+        }[paymentMethod] ?? 'Cash';
+
+        final englishPaymentStatus = {
+          loc.settled: 'Settled',
+          loc.due: 'Due',
+        }[paymentStatus] ?? 'Settled';
+
         final tableRef = _db
             .collection('tables')
             .doc(branchCode)
@@ -375,50 +393,55 @@ class _BillingScreenState extends State<BillingScreen> {
         double discountedPrice = calculateDiscountedPrice(totalPrice, discountPercentage);
 
         String updatedOrderStatus = '';
-        if (paymentStatus == 'Settled') {
+
+        if (englishPaymentStatus == 'Settled') {
           updatedOrderStatus = 'Payment Successfully Settled';
           updatedOrders = [];
-        } else if (paymentStatus == 'Due' && responsibleName.isNotEmpty) {
-          updatedOrderStatus = 'Payment Due Successfully by $responsibleName';
+        } else if (englishPaymentStatus == 'Due' && responsibleName.isNotEmpty) {
+          updatedOrderStatus = 'Payment Due Successfully by - $responsibleName';
           updatedOrders = [];
         } else {
-          Fluttertoast.showToast(msg: "Please enter responsible person's name for due payments.");
+          Fluttertoast.showToast(msg: loc.enterResponsibleName);
           return;
         }
 
+
+        // 🔄 Clear table and set order status
         await tableRef.update({
           'orders': [],
           'orderStatus': updatedOrderStatus,
         });
 
+        // ✅ Save payment with English values
         await tableRef.collection('orders').add({
           'orders': selectedTable!['orders'],
           'payment': {
             'total': totalPrice,
             'discountedTotal': discountedPrice,
             'discountPercentage': discountPercentage,
-            'status': paymentStatus,
-            'method': paymentMethod,
-            'responsible': paymentStatus == 'Due' ? responsibleName : null,
+            'status': englishPaymentStatus, // English
+            'method': englishPaymentMethod, // English
+            'responsible': englishPaymentStatus == 'Due' ? responsibleName : null,
             'timestamp': DateTime.now(),
           },
           'orderStatus': updatedOrderStatus,
           'timestamp': DateTime.now(),
         });
-        // ✅ Subtract ingredients from inventory
+
         await updateIngredientQuantities(selectedTable!['orders']);
 
-        Fluttertoast.showToast(msg: "Payment details saved successfully.");
+        Fluttertoast.showToast(msg: loc.paymentSaved);
         Navigator.pop(context); // Close modal
         fetchTables();
       } catch (e) {
         print("Error saving payment: $e");
-        Fluttertoast.showToast(msg: "Error saving payment.");
+        Fluttertoast.showToast(msg: loc.errorSavingPayment);
       }
     } else {
-      Fluttertoast.showToast(msg: 'Select payment method and status');
+      Fluttertoast.showToast(msg: loc.selectPaymentMethodAndStatus);
     }
   }
+
   void openPaymentModal(Map<String, dynamic> table) {
     selectedTable = table;
     paymentMethod = '';
@@ -435,6 +458,7 @@ class _BillingScreenState extends State<BillingScreen> {
   }
 
   Widget _buildPaymentModal() {
+    final loc = AppLocalizations.of(context)!;
     final orders = selectedTable?['orders'] ?? [];
     final totalPrice = calculateTotalPrice(orders);
     final discountedPrice = calculateDiscountedPrice(totalPrice, discountPercentage);
@@ -457,12 +481,8 @@ class _BillingScreenState extends State<BillingScreen> {
                   controller: scrollController,
                   children: [
                     Text(
-                      'Payment - Table ${selectedTable?['tableNumber']}',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF263238),
-                      ),
+                      '${loc.payment} - ${loc.table} ${selectedTable?['tableNumber']}',
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF263238)),
                     ),
                     SizedBox(height: 16),
 
@@ -470,12 +490,10 @@ class _BillingScreenState extends State<BillingScreen> {
                       ...orders.map((order) => Card(
                         margin: EdgeInsets.symmetric(vertical: 4),
                         elevation: 2,
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         child: ListTile(
-                          title: Text(order['name'],
-                              style: TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('Qty: ${order['quantity']} x ₹${order['price']}'),
+                          title: Text(order['name'], style: TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text('${loc.qty}: ${order['quantity']} x ₹${order['price']}'),
                           trailing: Text(
                             '₹${(order['quantity'] * order['price']).toStringAsFixed(2)}',
                             style: TextStyle(fontWeight: FontWeight.w500),
@@ -483,24 +501,21 @@ class _BillingScreenState extends State<BillingScreen> {
                         ),
                       )),
                     if (orders.isEmpty)
-                      Center(child: Text("No orders found", style: TextStyle(color: Colors.grey))),
+                      Center(child: Text(loc.noOrdersFound, style: TextStyle(color: Colors.grey))),
 
                     Divider(height: 32, thickness: 1),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Total:',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                        Text('₹${totalPrice.toStringAsFixed(2)}',
-                            style: TextStyle(fontSize: 16)),
+                        Text('${loc.total}:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        Text('₹${totalPrice.toStringAsFixed(2)}', style: TextStyle(fontSize: 16)),
                       ],
                     ),
                     SizedBox(height: 4),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('Discounted:',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        Text('${loc.discounted}:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                         Text('₹${discountedPrice.toStringAsFixed(2)}',
                             style: TextStyle(fontSize: 16, color: Colors.green.shade700)),
                       ],
@@ -510,7 +525,7 @@ class _BillingScreenState extends State<BillingScreen> {
                     TextField(
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
-                        labelText: 'Discount %',
+                        labelText: '${loc.discount} %',
                         prefixIcon: Icon(Icons.percent),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                       ),
@@ -522,11 +537,11 @@ class _BillingScreenState extends State<BillingScreen> {
                     ),
                     SizedBox(height: 24),
 
-                    Text('Payment Method:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('${loc.paymentMethod}:', style: TextStyle(fontWeight: FontWeight.bold)),
                     SizedBox(height: 8),
                     Wrap(
                       spacing: 10,
-                      children: ['Cash', 'Card', 'UPI', 'Due'].map((method) {
+                      children: [loc.cash, loc.card, loc.upi, loc.due].map((method) {
                         return ChoiceChip(
                           label: Text(method),
                           selected: paymentMethod == method,
@@ -543,15 +558,15 @@ class _BillingScreenState extends State<BillingScreen> {
                     ),
                     SizedBox(height: 20),
 
-                    Text('Payment Status:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('${loc.paymentStatus}:', style: TextStyle(fontWeight: FontWeight.bold)),
                     SizedBox(height: 8),
                     Wrap(
                       spacing: 10,
-                      children: ['Settled', 'Due'].map((status) {
+                      children: [loc.settled, loc.due].map((status) {
                         return ChoiceChip(
                           label: Text(status),
                           selected: paymentStatus == status,
-                          selectedColor: status == 'Settled' ? Color(0xFF2E7D32) : Color(0xFFF9A825),
+                          selectedColor: status == loc.settled ? Color(0xFF2E7D32) : Color(0xFFF9A825),
                           backgroundColor: Colors.grey.shade200,
                           labelStyle: TextStyle(
                             color: paymentStatus == status ? Colors.white : Colors.black87,
@@ -563,11 +578,11 @@ class _BillingScreenState extends State<BillingScreen> {
                       }).toList(),
                     ),
 
-                    if (paymentStatus == 'Due') ...[
+                    if (paymentStatus == loc.due) ...[
                       SizedBox(height: 16),
                       TextField(
                         decoration: InputDecoration(
-                          labelText: 'Responsible Person',
+                          labelText: loc.responsiblePerson,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         onChanged: (val) => modalSetState(() => responsibleName = val),
@@ -576,9 +591,10 @@ class _BillingScreenState extends State<BillingScreen> {
 
                     SizedBox(height: 28),
                     ElevatedButton.icon(
-                      onPressed: handleSavePayment,
+                    onPressed: handleSavePayment,
+
                       icon: Icon(Icons.save),
-                      label: Text('Save Payment'),
+                      label: Text(loc.savePayment),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Color(0xFF1565C0),
                         foregroundColor: Colors.white,
@@ -589,11 +605,9 @@ class _BillingScreenState extends State<BillingScreen> {
                     ),
                     SizedBox(height: 14),
                     ElevatedButton.icon(
-                      onPressed: selectedTable != null
-                          ? () => printReceipt(context, selectedTable!)
-                          : null,
+                      onPressed: selectedTable != null ? () => printReceipt(context, selectedTable!) : null,
                       icon: Icon(Icons.print),
-                      label: Text('Print Receipt'),
+                      label: Text(loc.printReceipt),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.grey.shade800,
                         foregroundColor: Colors.white,
@@ -610,8 +624,9 @@ class _BillingScreenState extends State<BillingScreen> {
         );
       },
     );
-
   }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -793,5 +808,4 @@ class _BillingScreenState extends State<BillingScreen> {
       ),
     );
   }
-  }
-
+}

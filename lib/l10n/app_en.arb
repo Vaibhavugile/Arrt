@@ -8,5 +8,78 @@
   "orderReport": "Order Report",
   "paymentReport": "Payment Report",
   "duePayments": "Due Payments",
-  "toggleTheme": "Toggle Theme"
+  "toggleTheme": "Toggle Theme",
+
+
+  "laCasa": "La Casa",
+  "noTables": "No tables available.",
+  "tableNumber": "Table {number}",
+  "@tableNumber": {
+    "placeholders": {
+      "number": {}
+    }
+  },
+  "payAmount": "Pay ₹{amount}",
+  "@payAmount": {
+    "placeholders": {
+      "amount": {}
+    }
+  },
+  "paymentForTable": "Payment - Table {tableNumber}",
+  "@paymentForTable": {
+    "placeholders": {
+      "tableNumber": {}
+    }
+  },
+  "payment": "Payment",
+  "table": "Table",
+  "qty": "Qty",
+  "discount": "Discount",
+  "cash": "Cash",
+  "card": "Card",
+  "upi": "UPI",
+  "due": "Due",
+  "settled": "Settled",
+  "discountPercent": "Discount %",
+  "paymentMethod": "Payment Method:",
+  "paymentStatus": "Payment Status:",
+  "responsiblePerson": "Responsible Person",
+  "savePayment": "Save Payment",
+  "printReceipt": "Print Receipt",
+  "noOrdersFound": "No orders found",
+  "total": "Total:",
+  "discounted": "Discounted:",
+  "addTable": "Add Table",
+  "paymentSettledMessage": "Payment Successfully Settled",
+  "paymentDueMessage": "Payment Due Successfully by",
+  "enterResponsibleName": "Please enter responsible person's name for due payments.",
+  "paymentSaved": "Payment details saved successfully.",
+  "errorSavingPayment": "Error saving payment.",
+  "selectPaymentMethodAndStatus": "Select payment method and status",
+  "paymentReportTitle": "Payment Report",
+  "filterPayments": "Filter Payments",
+  "fromDate": "From Date",
+  "toDate": "To Date",
+  "search": "Search",
+  "method": "Method",
+  "status": "Status",
+  "responsible": "Responsible",
+  "clearFilters": "Clear Filters",
+  "time": "Time",
+  "notAvailable": "N/A",
+  "markAsSettled": "Mark as Settled",
+  "choosePaymentMethod": "Choose Payment Method",
+  "storagePermissionRequired": "Storage permission is required to export the report.",
+  "openSettings": "Open Settings",
+  "failedToOpenPdf": "Failed to open PDF",
+  "online": "Online",
+  "paid": "Paid",
+  "pending": "Pending",
+  "quantity": "Qty: {qty} x ₹{price}",
+  "@quantity": {
+    "placeholders": {
+      "qty": {},
+      "price": {}
+    }
+  }
 }

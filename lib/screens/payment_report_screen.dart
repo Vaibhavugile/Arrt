@@ -5,14 +5,15 @@ import 'package:csv/csv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
-import'package:art/providers/user_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:open_file/open_file.dart';
-import 'dart:typed_data';
-import 'package:media_store_plus/media_store_plus.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // Import for localization
+import '../app.dart'; // Import for setting locale
+import 'package:art/providers/user_provider.dart'; // 👈 adjust the path
+
 
 class PaymentReportScreen extends StatefulWidget {
   @override
@@ -109,7 +110,6 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
         return bTime.compareTo(aTime);
       });
 
-
       setState(() {
         paymentHistory = historyData;
         filteredHistory = List.from(paymentHistory);
@@ -160,7 +160,6 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
         final bTime = _parseDate(b['timestamp']);
         return bTime.compareTo(aTime); // Descending
       });
-
     });
     // Group filtered data by day
     groupedData = {};
@@ -175,7 +174,8 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
         continue;
       }
 
-      final dateKey = "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
+      final dateKey =
+          "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}";
 
       if (!groupedData.containsKey(dateKey)) {
         groupedData[dateKey] = [];
@@ -197,9 +197,7 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
       start,
       end > flatList.length ? flatList.length : end,
     );
-
   }
-
 
   void clearFilters() {
     setState(() {
@@ -214,6 +212,7 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
   }
 
   void showOrders(List<dynamic> orders) {
+    final S = AppLocalizations.of(context)!;
     showModalBottomSheet(
       context: context,
       builder: (context) {
@@ -231,16 +230,18 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
       },
     );
   }
+
   Future<void> markAsSettled(Map<String, dynamic> entry) async {
     String selectedMethod = ''; // Default value
     List<String> paymentMethods = ['Cash', 'Card', 'UPI'];
+    final S = AppLocalizations.of(context)!;
 
     // Show a dialog to let the user choose the payment method
     await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Choose Payment Method'),
+          title: Text(S.choosePaymentMethod),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: paymentMethods.map((method) {
@@ -267,6 +268,7 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
       }
     });
   }
+
   Future<void> _updatePaymentMethod(Map<String, dynamic> entry, String selectedMethod) async {
     try {
       final tableNumber = entry['tableNumber'];
@@ -293,7 +295,7 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
           final orderDoc = ordersSnapshot.docs.first;
           await orderDoc.reference.update({
             'payment.method': selectedMethod,
-            'payment.status': 'Paid', // Optionally set the status to Paid
+            'payment.status': 'Settled', // Optionally set the status to Paid
           });
 
           ScaffoldMessenger.of(context).showSnackBar(
@@ -308,6 +310,34 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to update payment method')),
       );
+    }
+  }
+  String localizeMethod(String method, AppLocalizations S) {
+    switch (method.toLowerCase()) {
+      case 'cash':
+        return S.cash;
+      case 'card':
+        return S.card;
+      case 'upi':
+        return S.upi;
+      case 'online':
+        return S.online;
+      case 'due':
+        return S.due;
+      default:
+        return method;
+    }
+  }
+
+  String localizeStatus(String status, AppLocalizations S) {
+    switch (status.toLowerCase()) {
+
+      case 'Settled':
+        return S.settled;
+      case 'due':
+        return S.due;
+      default:
+        return status;
     }
   }
 
@@ -326,11 +356,12 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
         return true;
       } else {
         // Show snackbar with link to settings
+        final S = AppLocalizations.of(context)!;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Storage permission is required to export the CSV file.'),
+            content: Text(S.storagePermissionRequired),
             action: SnackBarAction(
-              label: 'Open Settings',
+              label: S.openSettings,
               onPressed: () {
                 openAppSettings(); // Opens app settings page
               },
@@ -347,6 +378,7 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
 
   Future<void> exportPDF(BuildContext context, List<dynamic> filteredHistory) async {
     final pdf = pw.Document();
+    final S = AppLocalizations.of(context)!;
 
     pdf.addPage(
       pw.Page(
@@ -354,14 +386,23 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Text('Payment Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              pw.Text(S.paymentReportTitle, style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
               pw.SizedBox(height: 16),
               pw.Table.fromTextArray(
-                headers: ['Table', 'Total', 'Discounted', 'Method', 'Status', 'Responsible', 'Time'],
+                headers: [
+                  S.table,
+                  S.total,
+                  S.discounted,
+                  S.method,
+                  S.status,
+                  S.responsible,
+                  S.time
+                ],
                 data: filteredHistory.map((entry) {
                   DateTime entryDate = entry['timestamp'] is Timestamp
                       ? entry['timestamp'].toDate()
-                      : DateTime.tryParse(entry['timestamp'].toString()) ?? DateTime.now();
+                      : DateTime.tryParse(entry['timestamp'].toString()) ??
+                      DateTime.now();
 
                   return [
                     entry['tableNumber'].toString(),
@@ -384,26 +425,24 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
     );
 
     final outputDir = await getTemporaryDirectory();
-    final file = File('${outputDir.path}/payment_report_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    final file =
+    File('${outputDir.path}/payment_report_${DateTime.now().millisecondsSinceEpoch}.pdf');
     await file.writeAsBytes(await pdf.save());
 
     // Open the PDF directly
     final result = await OpenFile.open(file.path);
     if (result.type != ResultType.done) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to open PDF: ${result.message}')),
+        SnackBar(content: Text('${S.failedToOpenPdf}: ${result.message}')),
       );
     }
   }
 
-
-
-
-
   Future<void> pickDate(BuildContext context, bool isFrom) async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: isFrom ? (fromDate ?? DateTime.now()) : (toDate ?? DateTime.now()),
+      initialDate:
+      isFrom ? (fromDate ?? DateTime.now()) : (toDate ?? DateTime.now()),
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
     );
@@ -420,7 +459,8 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
     final totals = {'Cash': 0.0, 'Card': 0.0, 'UPI': 0.0, 'Due': 0.0};
 
     for (var entry in data) {
-      final amount = (entry['discountedTotal'] ?? entry['total'] ?? 0.0).toDouble();
+      final amount =
+      (entry['discountedTotal'] ?? entry['total'] ?? 0.0).toDouble();
       final method = (entry['method'] ?? '').toString().toLowerCase();
 
       if (method == 'cash') {
@@ -449,7 +489,8 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
           children: [
             Icon(icon, size: 30, color: Theme.of(context).primaryColor),
             SizedBox(height: 8),
-            Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(label,
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             Text('₹${value.toStringAsFixed(2)}', style: TextStyle(fontSize: 18)),
           ],
         ),
@@ -460,29 +501,57 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
   @override
   Widget build(BuildContext context) {
     final totals = calculateTotals(filteredHistory);
+    final S = AppLocalizations.of(context)!;
 
-    List<String> methods = paymentHistory.map((e) => e['method'].toString()).toSet().toList();
-    List<String> statuses = paymentHistory.map((e) => e['status'].toString()).toSet().toList();
-    List<String> responsibles = paymentHistory.map((e) => e['responsible'].toString()).toSet().toList();
+    List<String> methods =
+    paymentHistory.map((e) => e['method'].toString()).toSet().toList();
+    List<String> statuses =
+    paymentHistory.map((e) => e['status'].toString()).toSet().toList();
+    List<String> responsibles =
+    paymentHistory.map((e) => e['responsible'].toString()).toSet().toList();
 
     return Animate(
       effects: [FadeEffect(duration: 600.ms), MoveEffect(begin: Offset(0, 30))],
       child: Scaffold(
         appBar: AppBar(
           title: Text(
-            'Payment Report',
+            S.paymentReportTitle,
             style: TextStyle(color: Colors.white), // 👈 Makes text white
           ),
-          backgroundColor: Color(0xFF4CB050),
-          iconTheme: IconThemeData(color: Colors.white),
+          backgroundColor: const Color(0xFF4CB050),
+          iconTheme: const IconThemeData(color: Colors.white),
           actions: [
-            IconButton(icon: Icon(Icons.download_rounded), onPressed: () {
-              exportPDF(context, filteredHistory);
-            },),
+            IconButton(
+              icon: const Icon(Icons.download_rounded),
+              onPressed: () {
+                exportPDF(context, filteredHistory);
+              },
+            ),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.language, color: Colors.white),
+              onSelected: (value) {
+                switch (value) { // Use switch for better readability
+                  case 'en':
+                    MyApp.setLocale(context, const Locale('en'));
+                    break;
+                  case 'hi':
+                    MyApp.setLocale(context, const Locale('hi'));
+                    break;
+                  case 'mr':
+                    MyApp.setLocale(context, const Locale('mr'));
+                    break;
+                }
+              },
+              itemBuilder: (BuildContext context) => [
+                const PopupMenuItem(value: 'en', child: Text('English')),
+                const PopupMenuItem(value: 'hi', child: Text('हिंदी')),
+                const PopupMenuItem(value: 'mr', child: Text('मराठी')), // ✅ New
+              ],
+            ),
           ],
         ),
         body: isLoading
-            ? Center(child: CircularProgressIndicator())
+            ? const Center(child: CircularProgressIndicator())
             : Padding(
           padding: const EdgeInsets.all(16.0),
           child: SingleChildScrollView(
@@ -491,33 +560,43 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
               children: [
                 // Filters Section
                 Card(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                   elevation: 8,
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Filter Payments', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                        SizedBox(height: 16),
+                        Text(S.filterPayments,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18)),
+                        const SizedBox(height: 16),
                         Row(
                           children: [
                             IconButton(
-                              icon: Icon(Icons.date_range),
+                              icon: const Icon(Icons.date_range),
                               onPressed: () => pickDate(context, true),
                             ),
-                            Text(fromDate == null ? 'From Date' : DateFormat.yMd().format(fromDate!)),
-                            SizedBox(width: 16),
+                            Text(fromDate == null
+                                ? S.fromDate
+                                : DateFormat.yMd().format(fromDate!)),
+                            const SizedBox(width: 16),
                             IconButton(
-                              icon: Icon(Icons.date_range),
+                              icon: const Icon(Icons.date_range),
                               onPressed: () => pickDate(context, false),
                             ),
-                            Text(toDate == null ? 'To Date' : DateFormat.yMd().format(toDate!)),
+                            Text(toDate == null
+                                ? S.toDate
+                                : DateFormat.yMd().format(toDate!)),
                           ],
                         ),
-                        SizedBox(height: 16),
+                        const SizedBox(height: 16),
                         TextField(
-                          decoration: InputDecoration(labelText: 'Search', border: OutlineInputBorder()),
+                          decoration: InputDecoration(
+                              labelText: S.search,
+                              border: const OutlineInputBorder()),
                           onChanged: (value) {
                             setState(() {
                               searchTerm = value;
@@ -525,18 +604,35 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                             });
                           },
                         ),
-                        SizedBox(height: 16),
+                        const SizedBox(height: 16),
                         Row(
                           children: [
                             Expanded(
                               child: DropdownButton<String>(
                                 value: methods.contains(selectedMethod) ? selectedMethod : null,
-                                hint: Text('Method'),
+                                hint: Text(S.method),
                                 isExpanded: true,
                                 items: methods.map((method) {
+                                  String localizedMethod;
+                                  switch (method.toLowerCase()) {
+                                    case 'cash':
+                                      localizedMethod = S.cash;
+                                      break;
+                                    case 'card':
+                                      localizedMethod = S.card;
+                                      break;
+                                    case 'upi':
+                                      localizedMethod = S.upi;
+                                      break;
+                                    case 'due':
+                                      localizedMethod = S.due;
+                                      break;
+                                    default:
+                                      localizedMethod = method;
+                                  }
                                   return DropdownMenuItem<String>(
                                     value: method,
-                                    child: Text(method),
+                                    child: Text(localizedMethod),
                                   );
                                 }).toList(),
                                 onChanged: (value) {
@@ -547,16 +643,27 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                                 },
                               ),
                             ),
-                            SizedBox(width: 16),
+                            const SizedBox(width: 16),
                             Expanded(
                               child: DropdownButton<String>(
                                 value: statuses.contains(selectedStatus) ? selectedStatus : null,
-                                hint: Text('Status'),
+                                hint: Text(S.status),
                                 isExpanded: true,
                                 items: statuses.map((status) {
+                                  String localizedStatus;
+                                  switch (status.toLowerCase()) {
+                                    case 'Settled':
+                                      localizedStatus = S.settled;
+                                      break;
+                                    case 'due':
+                                      localizedStatus = S.due;
+                                      break;
+                                    default:
+                                      localizedStatus = status;
+                                  }
                                   return DropdownMenuItem<String>(
                                     value: status,
-                                    child: Text(status),
+                                    child: Text(localizedStatus),
                                   );
                                 }).toList(),
                                 onChanged: (value) {
@@ -567,11 +674,14 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                                 },
                               ),
                             ),
-                            SizedBox(width: 16),
+                            const SizedBox(width: 16),
                             Expanded(
                               child: DropdownButton<String>(
-                                value: responsibles.contains(selectedResponsible) ? selectedResponsible : null,
-                                hint: Text('Responsible'),
+                                value: responsibles.contains(
+                                    selectedResponsible)
+                                    ? selectedResponsible
+                                    : null,
+                                hint: Text(S.responsible),
                                 isExpanded: true,
                                 items: responsibles.map((responsible) {
                                   return DropdownMenuItem<String>(
@@ -589,58 +699,82 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                             ),
                           ],
                         ),
-
-
-                        SizedBox(height: 16),
+                        const SizedBox(height: 16),
                         ElevatedButton.icon(
                           onPressed: clearFilters,
-                          icon: Icon(Icons.clear_all),
-                          label: Text('Clear Filters'),
+                          icon: const Icon(Icons.clear_all),
+                          label: Text(S.clearFilters),
                           style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius:
+                                BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 // Total Cards
                 Column(
+
                   children: [
                     Row(
                       children: [
-                        Expanded(child: _buildTotalCard(Icons.money, 'Cash', totals['Cash']!)),
-                        SizedBox(width: 16),
-                        Expanded(child: _buildTotalCard(Icons.credit_card, 'Card', totals['Card']!)),
+                        Expanded(
+                          child: _buildTotalCard(
+                            Icons.money,
+                            S.cash, // Translated label
+                            totals['Cash']!,     // Fixed key
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildTotalCard(
+                            Icons.credit_card,
+                            S.card,
+                            totals['Card']!,
+                          ),
+                        ),
                       ],
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     Row(
                       children: [
-                        Expanded(child: _buildTotalCard(Icons.account_balance_wallet, 'UPI', totals['UPI']!)),
-                        SizedBox(width: 16),
-                        Expanded(child: _buildTotalCard(Icons.access_time, 'Due', totals['Due']!)),
+                        Expanded(
+                          child: _buildTotalCard(
+                            Icons.account_balance_wallet,
+                            S.upi,
+                            totals['UPI']!,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildTotalCard(
+                            Icons.access_time,
+                            S.due,
+                            totals['Due']!,
+                          ),
+                        ),
                       ],
                     ),
                   ],
                 ),
 
-
-
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 // Payment History List
                 ListView.builder(
                   shrinkWrap: true,
-                  physics: NeverScrollableScrollPhysics(),
+                  physics: const NeverScrollableScrollPhysics(),
                   itemCount: filteredHistory.length,
                   itemBuilder: (context, index) {
                     final entry = filteredHistory[index];
 
                     // Timestamp parsing
                     final timestampValue = entry['timestamp'];
-                    String timestamp = 'Not Available';
+                    String timestamp = S.notAvailable;
 
                     if (timestampValue != null) {
                       DateTime dateTime;
@@ -658,10 +792,15 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                       timestamp = DateFormat('yyyy-MM-dd hh:mm a').format(dateTime);
                     }
 
+                    // Get localized values
+                    final method = localizeMethod(entry['method'] ?? '', S);
+                    final status = localizeStatus(entry['status'] ?? '', S);
+                    final responsible = entry['responsible'] ?? S.notAvailable;
+
                     return Animate(
                       effects: [
                         FadeEffect(duration: 600.ms),
-                        MoveEffect(begin: Offset(0, 20))
+                        MoveEffect(begin: const Offset(0, 20))
                       ],
                       child: GestureDetector(
                         onTap: () => showOrders(entry['orders']),
@@ -670,7 +809,7 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           elevation: 4,
-                          margin: EdgeInsets.symmetric(vertical: 8),
+                          margin: const EdgeInsets.symmetric(vertical: 8),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
                             child: Row(
@@ -682,31 +821,32 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Table ${entry['tableNumber']}',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                        '${S.table} ${entry['tableNumber'] ?? '-'}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
                                       ),
                                       Text(
-                                        '${entry['method']} | ${entry['status']} | ${entry['responsible']}',
-                                        style: TextStyle(color: Colors.grey),
+                                        '$method | $status | $responsible',
+                                        style: const TextStyle(color: Colors.grey),
                                       ),
-                                      SizedBox(height: 4),
+                                      const SizedBox(height: 4),
                                       Text(
-                                        'Time: $timestamp',
-                                        style: TextStyle(fontSize: 12, color: Colors.blueGrey),
+                                        '${S.time}: $timestamp',
+                                        style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
                                       ),
                                     ],
                                   ),
                                 ),
+
                                 // Right side: amount + action button
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    Text('₹${entry['total']}'),
-                                    if (entry['method'].toString().toLowerCase() == 'due')
+                                    Text('₹${entry['total'] ?? '0.0'}'),
+                                    if ((entry['method'] ?? '').toString().toLowerCase() == 'due')
                                       TextButton(
                                         onPressed: () => markAsSettled(entry),
-                                        child: Text('Mark as Settled'),
                                         style: TextButton.styleFrom(foregroundColor: Colors.green),
+                                        child: Text(S.markAsSettled),
                                       ),
                                   ],
                                 ),
@@ -716,7 +856,6 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                         ),
                       ),
                     );
-
                   },
                 ),
 
