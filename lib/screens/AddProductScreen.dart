@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
-import 'package:art/providers/user_provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // <-- Add this line
+import 'package:art/providers/user_provider.dart';
 
 class AddProductScreen extends StatefulWidget {
   @override
@@ -119,11 +120,15 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text("Remove Ingredient"),
-        content: Text("Are you sure you want to remove this ingredient?"),
+        title: Text(AppLocalizations.of(context)!.remove_ingredient),
+        content: Text(AppLocalizations.of(context)!.remove_ingredient_confirm),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text("Cancel")),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: Text("Remove")),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(AppLocalizations.of(context)!.cancel)),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(AppLocalizations.of(context)!.remove)),
         ],
       ),
     );
@@ -198,8 +203,8 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
 
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(_isOffline
-            ? 'Product saved locally, will sync when online!'
-            : 'Product added successfully!'),
+            ? AppLocalizations.of(context)!.product_saved_offline
+            : AppLocalizations.of(context)!.product_added_success),
       ));
 
       setState(() {
@@ -212,39 +217,46 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
       });
     } catch (e) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error adding product')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.error_adding_product)));
     }
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, TextInputType type) {
+  Widget _buildTextField(TextEditingController controller, String labelKey, TextInputType type) {
+    final loc = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: TextFormField(
         controller: controller,
         keyboardType: type,
         decoration: InputDecoration(
-          labelText: label,
+          labelText: loc.getTranslatedField(labelKey),
           border: OutlineInputBorder(),
         ),
-        onChanged: label == 'Category'
+        onChanged: labelKey == 'category'
             ? _handleCategoryChange
-            : label == 'Subcategory'
+            : labelKey == 'subcategory'
             ? _handleSubcategoryChange
             : null,
-        validator: (value) => value == null || value.trim().isEmpty
-            ? 'Please enter $label'
-            : label == 'Price' && double.tryParse(value) == null
-            ? 'Enter valid number'
-            : null,
+        validator: (value) {
+          if (value == null || value.trim().isEmpty) {
+            return loc.enter_field(loc.getTranslatedField(labelKey));
+          }
+          if (labelKey == 'price' && double.tryParse(value) == null) {
+            return loc.enter_valid_number;
+          }
+          return null;
+        },
       ),
     );
   }
 
   Widget _buildCategoryField() {
+    final loc = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTextField(_categoryController, 'Category', TextInputType.text),
+        _buildTextField(_categoryController, 'category', TextInputType.text),
         if (_filteredCategories.isNotEmpty)
           ..._filteredCategories.map((cat) => ListTile(
             title: Text(cat),
@@ -258,7 +270,7 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTextField(_subcategoryController, 'Subcategory', TextInputType.text),
+        _buildTextField(_subcategoryController, 'subcategory', TextInputType.text),
         if (_filteredSubcategories.isNotEmpty)
           ..._filteredSubcategories.map((sub) => ListTile(
             title: Text(sub),
@@ -269,6 +281,7 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
   }
 
   Widget _buildIngredientRow(int i, List<String> categoryList) {
+    final loc = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: AnimatedContainer(
@@ -284,7 +297,7 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("Ingredient ${i + 1}", style: TextStyle(fontWeight: FontWeight.bold)),
+                Text("${loc.ingredient} ${i + 1}", style: TextStyle(fontWeight: FontWeight.bold)),
                 IconButton(
                   icon: Icon(Icons.delete, color: Colors.red),
                   onPressed: () => _removeIngredientField(i),
@@ -294,7 +307,7 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
             SizedBox(height: 10),
             DropdownButtonFormField<String>(
               value: _ingredients[i]['category']!.isEmpty ? null : _ingredients[i]['category'],
-              hint: Text('Category'),
+              hint: Text(loc.category),
               decoration: InputDecoration(border: OutlineInputBorder()),
               items: categoryList.map((cat) {
                 return DropdownMenuItem<String>(
@@ -309,7 +322,7 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
               value: _ingredients[i]['ingredientName']!.isEmpty
                   ? null
                   : _ingredients[i]['ingredientName'],
-              hint: Text('Ingredient'),
+              hint: Text(loc.ingredient),
               decoration: InputDecoration(border: OutlineInputBorder()),
               items: _allIngredients
                   .where((ing) => ing['category'] == _ingredients[i]['category'])
@@ -324,8 +337,8 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
             SizedBox(height: 10),
             TextFormField(
               decoration: InputDecoration(
-                labelText: 'Quantity Used',
-                hintText: 'e.g. 100 or 1.5',
+                labelText: loc.quantity_used,
+                hintText: loc.quantity_example,
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
@@ -340,17 +353,16 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     final categoryList = _allIngredients.map((ing) => ing['category']?.toString() ?? '').toSet().toList();
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Color(0xFF4CB050),
-        title: Text(
-          'Add Product',
-          style: TextStyle(color: Colors.white), // 👈 Makes text white
-        ),
-        iconTheme: IconThemeData(color: Colors.white), // optional: makes back icon white too
-      ),       body: Stack(
+        title: Text(loc.add_product, style: TextStyle(color: Colors.white)),
+        iconTheme: IconThemeData(color: Colors.white),
+      ),
+      body: Stack(
         children: [
           AnimatedSwitcher(
             duration: Duration(milliseconds: 400),
@@ -362,12 +374,12 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
                 key: _formKey,
                 child: ListView(
                   children: [
-                    _buildTextField(_nameController, 'Product Name', TextInputType.text),
-                    _buildTextField(_priceController, 'Price', TextInputType.number),
-
+                    _buildTextField(_nameController, 'product_name', TextInputType.text),
+                    _buildTextField(_priceController, 'price', TextInputType.number),
+                    _buildCategoryField(),
                     _buildSubcategoryField(),
                     SizedBox(height: 20),
-                    Text('Ingredients', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(loc.ingredients, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     AnimatedSize(
                       duration: Duration(milliseconds: 300),
                       curve: Curves.easeInOut,
@@ -382,15 +394,14 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
                       child: TextButton.icon(
                         onPressed: _addIngredientField,
                         icon: Icon(Icons.add_circle_outline),
-                        label: Text("Add Ingredient"),
+                        label: Text(loc.add_ingredient),
                       ),
                     ),
                     SizedBox(height: 24),
                     ElevatedButton.icon(
                       onPressed: _submitForm,
-                      icon: Icon(Icons.save,color: Colors.white ,),
-
-                      label: Text('Add Product',style: TextStyle(color: Colors.white),),
+                      icon: Icon(Icons.save, color: Colors.white),
+                      label: Text(loc.add_product, style: TextStyle(color: Colors.white)),
                       style: ElevatedButton.styleFrom(
                         minimumSize: Size(double.infinity, 48),
                         backgroundColor: Theme.of(context).colorScheme.primary,

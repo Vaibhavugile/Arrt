@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
-import '../../providers/user_provider.dart';
 import 'package:intl/intl.dart';
-import 'package:art/screens/AddVendorPage.dart';
+import '../../providers/user_provider.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'AddVendorPage.dart';
+
 class VendorScreen extends StatefulWidget {
   @override
   _VendorScreenState createState() => _VendorScreenState();
@@ -55,6 +57,7 @@ class _VendorScreenState extends State<VendorScreen> {
       loading = false;
     });
   }
+
   // Date Picker function
   Future<void> _selectDate(BuildContext context) async {
     final selectedDate = await showDatePicker(
@@ -62,6 +65,9 @@ class _VendorScreenState extends State<VendorScreen> {
       initialDate: DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
+      helpText: AppLocalizations.of(context)!.selectDate,
+      cancelText: AppLocalizations.of(context)!.cancel,
+      confirmText: AppLocalizations.of(context)!.confirm,
     );
 
     if (selectedDate != null && selectedDate != DateTime.now()) {
@@ -86,7 +92,7 @@ class _VendorScreenState extends State<VendorScreen> {
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Vendor details updated!')),
+      SnackBar(content: Text(AppLocalizations.of(context)!.vendorDetailsUpdated)),
     );
 
     setState(() {
@@ -99,16 +105,18 @@ class _VendorScreenState extends State<VendorScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+
     return Animate(
       effects: [FadeEffect(duration: 600.ms), MoveEffect(begin: Offset(0, 30))],
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: Color(0xFF4CB050),
           title: Text(
-            'Vendors',
-            style: TextStyle(color: Colors.white), // 👈 Makes text white
+            loc.vendors,
+            style: TextStyle(color: Colors.white),
           ),
-          iconTheme: IconThemeData(color: Colors.white), // optional: makes back icon white too
+          iconTheme: IconThemeData(color: Colors.white),
         ),
         body: loading
             ? Center(child: CircularProgressIndicator())
@@ -129,16 +137,18 @@ class _VendorScreenState extends State<VendorScreen> {
               child: Column(
                 children: [
                   ListTile(
-                    title: Text(vendor['name'] ?? 'No Name'),
+                    title: Text(vendor['name'] ?? loc.noName),
                     subtitle: Builder(
                       builder: (_) {
                         final total = stockDetails.fold<double>(
                           0.0,
-                              (sum, item) => sum + (double.tryParse(item['price']?.toString() ?? '0') ?? 0.0),
+                              (sum, item) =>
+                          sum + (double.tryParse(item['price']?.toString() ?? '0') ?? 0.0),
                         );
                         final totalPaid = comments.fold<double>(
                           0.0,
-                              (sum, c) => sum + (double.tryParse(c['amountPaid']?.toString() ?? '0') ?? 0.0),
+                              (sum, c) =>
+                          sum + (double.tryParse(c['amountPaid']?.toString() ?? '0') ?? 0.0),
                         );
                         final pending = total - totalPaid;
 
@@ -146,24 +156,24 @@ class _VendorScreenState extends State<VendorScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Total: ₹${total.toStringAsFixed(2)}',
-                              style: TextStyle(color: Colors.blue[800], fontWeight: FontWeight.w600),
+                              '${loc.total}: ₹${total.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                  color: Colors.blue[800], fontWeight: FontWeight.w600),
                             ),
                             Text(
-                              'Paid: ₹${totalPaid.toStringAsFixed(2)}',
-                              style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.w600),
+                              '${loc.paid}: ₹${totalPaid.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                  color: Colors.green[700], fontWeight: FontWeight.w600),
                             ),
                             Text(
-                              'Pending: ₹${pending.toStringAsFixed(2)}',
-                              style: TextStyle(color: Colors.red[700], fontWeight: FontWeight.w600),
+                              '${loc.pending}: ₹${pending.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                  color: Colors.red[700], fontWeight: FontWeight.w600),
                             ),
                           ],
                         );
                       },
                     ),
-
-
-
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -175,6 +185,7 @@ class _VendorScreenState extends State<VendorScreen> {
                               expandedVendorId = vendor['id'];
                             });
                           },
+                          tooltip: loc.edit,
                         ),
                         IconButton(
                           icon: Icon(isExpanded ? Icons.expand_less : Icons.expand_more),
@@ -183,6 +194,7 @@ class _VendorScreenState extends State<VendorScreen> {
                               expandedVendorId = isExpanded ? null : vendor['id'];
                             });
                           },
+                          tooltip: isExpanded ? loc.collapse : loc.expand,
                         ),
                       ],
                     ),
@@ -195,7 +207,7 @@ class _VendorScreenState extends State<VendorScreen> {
                         children: [
                           TextField(
                             decoration: InputDecoration(
-                              labelText: 'Search by date (dd-mm-yyyy)',
+                              labelText: loc.searchByDate,
                               border: OutlineInputBorder(),
                             ),
                             onChanged: (val) {
@@ -208,20 +220,20 @@ class _VendorScreenState extends State<VendorScreen> {
                           ..._buildGroupedStockTables(stockDetails),
                           const SizedBox(height: 10),
                           if (editingVendorId == vendor['id']) ...[
-                            Text('Add Comment', style: TextStyle(fontWeight: FontWeight.bold)),
+                            Text(loc.addComment, style: TextStyle(fontWeight: FontWeight.bold)),
                             TextField(
-                              decoration: InputDecoration(labelText: 'Amount Paid'),
+                              decoration: InputDecoration(labelText: loc.amountPaid),
                               keyboardType: TextInputType.number,
                               onChanged: (val) => setState(() => commentData['amountPaid'] = val),
                             ),
                             TextField(
-                              decoration: InputDecoration(labelText: 'Paid By'),
+                              decoration: InputDecoration(labelText: loc.paidBy),
                               onChanged: (val) => setState(() => commentData['paidBy'] = val),
                             ),
                             TextField(
                               decoration: InputDecoration(
-                                labelText: 'Date',
-                                hintText: 'Select a date',
+                                labelText: loc.date,
+                                hintText: loc.selectDate,
                               ),
                               controller: TextEditingController(text: commentData['date']),
                               readOnly: true,
@@ -229,20 +241,20 @@ class _VendorScreenState extends State<VendorScreen> {
                             ),
                             ElevatedButton.icon(
                               icon: Icon(Icons.save),
-                              label: Text('Save'),
+                              label: Text(loc.save),
                               onPressed: () => saveComment(vendor['id']),
-                            )
+                            ),
                           ],
                           const SizedBox(height: 10),
-                          Text('Comments', style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text(loc.comments, style: TextStyle(fontWeight: FontWeight.bold)),
                           if (comments.isNotEmpty)
                             ...comments.map<Widget>((c) => Padding(
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(
-                                  '₹${c['amountPaid']} paid by ${c['paidBy']} on ${c['date']}'),
+                                  '₹${c['amountPaid']} ${loc.paidBy} ${c['paidBy']} ${loc.on} ${c['date']}'),
                             ))
                           else
-                            Text('No comments yet'),
+                            Text(loc.noCommentsYet),
                         ],
                       ),
                     )
@@ -260,9 +272,8 @@ class _VendorScreenState extends State<VendorScreen> {
             );
           },
           child: Icon(Icons.add),
-          tooltip: 'Add Vendor',
+          tooltip: loc.addVendor,
         ),
-
       ),
     );
   }
@@ -281,19 +292,21 @@ class _VendorScreenState extends State<VendorScreen> {
     final sortedEntries = grouped.entries.toList()
       ..sort((a, b) => dateFormat.parse(b.key).compareTo(dateFormat.parse(a.key)));
 
+    final loc = AppLocalizations.of(context)!;
+
     return sortedEntries.map((entry) {
       return ExpansionTile(
-        title: Text('Date: ${entry.key}'),
+        title: Text('${loc.dateLabel}: ${entry.key}'),
         children: [
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal, // horizontal scroll enabled
+              scrollDirection: Axis.horizontal,
               child: DataTable(
-                columns: const [
-                  DataColumn(label: Text('Stock Name')),
-                  DataColumn(label: Text('Quantity')),
-                  DataColumn(label: Text('Price')),
+                columns: [
+                  DataColumn(label: Text(loc.stockName)),
+                  DataColumn(label: Text(loc.quantity1)),
+                  DataColumn(label: Text(loc.price)),
                 ],
                 rows: entry.value.map<DataRow>((stock) {
                   return DataRow(cells: [
@@ -310,7 +323,7 @@ class _VendorScreenState extends State<VendorScreen> {
             child: Align(
               alignment: Alignment.centerRight,
               child: Text(
-                'Total: ₹${entry.value.fold<double>(0.0, (sum, stock) => sum + (double.tryParse(stock['price']?.toString() ?? '0') ?? 0)).toStringAsFixed(2)}',
+                '${loc.total}: ₹${entry.value.fold<double>(0.0, (sum, stock) => sum + (double.tryParse(stock['price']?.toString() ?? '0') ?? 0)).toStringAsFixed(2)}',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),

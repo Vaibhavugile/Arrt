@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 
 class EditProductScreen extends StatefulWidget {
   final String productId;
@@ -164,26 +165,30 @@ class _EditProductScreenState extends State<EditProductScreen> {
               .toList(),
         });
 
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Product updated successfully!')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.productUpdatedSuccess)),
+        );
       } catch (e) {
         print('Error updating product: $e');
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error updating product')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.errorUpdatingProduct)),
+        );
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Color(0xFF4CB050),
         title: Text(
-          'Edit Product',
-          style: TextStyle(color: Colors.white), // 👈 Makes text white
+          loc.editProduct,
+          style: TextStyle(color: Colors.white),
         ),
-        iconTheme: IconThemeData(color: Colors.white), // optional: makes back icon white too
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: Stack(
         children: [
@@ -198,14 +203,17 @@ class _EditProductScreenState extends State<EditProductScreen> {
                 child: ListView(
                   children: [
                     // Product Name
-                    _buildTextField(productNameController, 'Product Name', TextInputType.text),
+                    _buildTextField(productNameController, loc.productName, TextInputType.text),
                     // Price
-                    _buildTextField(priceController, 'Price', TextInputType.number),
+                    _buildTextField(priceController, loc.price, TextInputType.number),
                     // Subcategory
                     _buildSubcategoryField(),
                     SizedBox(height: 20),
                     // Ingredients section
-                    Text('Ingredients', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(
+                      loc.ingredients,
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
                     AnimatedSize(
                       duration: Duration(milliseconds: 300),
                       curve: Curves.easeInOut,
@@ -221,15 +229,18 @@ class _EditProductScreenState extends State<EditProductScreen> {
                       child: TextButton.icon(
                         onPressed: _addIngredientField,
                         icon: Icon(Icons.add_circle_outline),
-                        label: Text("Add Ingredient"),
+                        label: Text(loc.addIngredient),
                       ),
                     ),
                     SizedBox(height: 24),
                     // Update Product Button
                     ElevatedButton.icon(
                       onPressed: updateProduct,
-                      icon: Icon(Icons.save,color: Colors.white ,),
-                      label: Text('Update Product',style: TextStyle(color: Colors.white)),
+                      icon: Icon(Icons.save, color: Colors.white),
+                      label: Text(
+                        loc.updateProduct,
+                        style: TextStyle(color: Colors.white),
+                      ),
                       style: ElevatedButton.styleFrom(
                         minimumSize: Size(double.infinity, 48),
                         backgroundColor: Theme.of(context).colorScheme.primary,
@@ -255,11 +266,11 @@ class _EditProductScreenState extends State<EditProductScreen> {
           border: OutlineInputBorder(),
         ),
         keyboardType: keyboardType,
-        validator: (value) => value!.isEmpty ? 'Please enter a value' : null,
+        validator: (value) => value!.isEmpty ? AppLocalizations.of(context)!.pleaseEnterValue : null,
         onChanged: (value) {
-          if (label == 'Product Name') {
+          if (label == AppLocalizations.of(context)!.productName) {
             productName = value;
-          } else if (label == 'Price') {
+          } else if (label == AppLocalizations.of(context)!.price) {
             price = value;
           }
         },
@@ -273,7 +284,7 @@ class _EditProductScreenState extends State<EditProductScreen> {
       child: TextFormField(
         controller: subcategoryController,
         decoration: InputDecoration(
-          labelText: 'Subcategory',
+          labelText: AppLocalizations.of(context)!.subcategory,
           border: OutlineInputBorder(),
         ),
         onChanged: handleSubcategoryChange,
@@ -283,52 +294,67 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
   Widget _buildIngredientRow(int index) {
     final ingredient = ingredients[index];
+
+    // Get unique categories
+    final categories = allIngredients.map((e) => e['category']).toSet().toList();
+
+    // Get ingredients for selected category
+    final ingredientsForCategory = allIngredients.where((e) => e['category'] == ingredient['category']).toSet().toList();
+
+    final selectedCategory = categories.contains(ingredient['category']) ? ingredient['category'] : null;
+    final selectedIngredient = ingredientsForCategory.any((e) => e['ingredientName'] == ingredient['ingredientName'])
+        ? ingredient['ingredientName']
+        : null;
+
     return Card(
       elevation: 4,
       margin: EdgeInsets.symmetric(vertical: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
           children: [
+            // Category Dropdown
             DropdownButtonFormField<String>(
-              value: ingredient['category'].isEmpty ? null : ingredient['category'],
-              onChanged: (value) => handleInputChange(index, 'category', value!),
-              items: allIngredients.map((e) {
+              value: selectedCategory,
+              onChanged: (value) => handleInputChange(index, 'category', value ?? ''),
+              items: categories.map((cat) {
                 return DropdownMenuItem<String>(
-                  value: e['category'],
-                  child: Text(e['category']),
+                  value: cat,
+                  child: Text(cat),
                 );
               }).toList(),
-              decoration: InputDecoration(labelText: 'Category'),
+              decoration: InputDecoration(labelText: AppLocalizations.of(context)!.category),
             ),
+
+            // Ingredient Dropdown
             DropdownButtonFormField<String>(
-              value: ingredient['ingredientName'].isEmpty ? null : ingredient['ingredientName'],
-              onChanged: (value) => handleInputChange(index, 'ingredientName', value!),
-              items: allIngredients
-                  .where((e) => e['category'] == ingredient['category'])
-                  .map((e) {
+              value: selectedIngredient,
+              onChanged: (value) => handleInputChange(index, 'ingredientName', value ?? ''),
+              items: ingredientsForCategory.map((e) {
                 return DropdownMenuItem<String>(
                   value: e['ingredientName'],
                   child: Text(e['ingredientName']),
                 );
               }).toList(),
-              decoration: InputDecoration(labelText: 'Ingredient'),
+              decoration: InputDecoration(labelText: AppLocalizations.of(context)!.ingredient),
             ),
+
+            // Quantity Used Field
             TextFormField(
               initialValue: ingredient['quantityUsed']?.toString(),
               onChanged: (value) => handleInputChange(index, 'quantityUsed', value),
-              decoration: InputDecoration(labelText: 'Quantity Used'),
+              decoration: InputDecoration(labelText: AppLocalizations.of(context)!.quantityUsed),
               keyboardType: TextInputType.number,
             ),
-            // Remove Ingredient Button
+
+            // Remove Button
             Align(
               alignment: Alignment.centerRight,
               child: IconButton(
                 icon: Icon(Icons.delete, color: Colors.red),
                 onPressed: () => _removeIngredientField(index),
+                tooltip: AppLocalizations.of(context)!.removeIngredient,
               ),
             ),
           ],

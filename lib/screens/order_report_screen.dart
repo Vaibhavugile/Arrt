@@ -2,14 +2,15 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:csv/csv.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import'package:art/providers/user_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:open_file/open_file.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // Import the generated file
+import 'package:art/providers/user_provider.dart'; // 👈 adjust the path
+
 
 class OrderReportScreen extends StatefulWidget {
   @override
@@ -24,6 +25,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
   String searchTerm = '';
   bool isLoading = true;
   late String branchCode;
+  late AppLocalizations? _localization; // Add this line
 
   @override
   void initState() {
@@ -32,8 +34,9 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       setState(() {
         branchCode = userProvider.branchCode!;
+        _localization = AppLocalizations.of(context); // Initialize here
       });
-    fetchOrderHistory();
+      fetchOrderHistory();
     });
   }
 
@@ -75,6 +78,11 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       });
     } catch (e) {
       print("Error fetching order history: $e");
+      if (mounted) { // Check if the widget is still in the tree
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error fetching data: $e')), // Show error to user
+        );
+      }
     }
   }
 
@@ -113,6 +121,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
     });
     filterData();
   }
+
   Future<void> exportOrderPDF(BuildContext context, List<dynamic> filteredHistory) async {
     final pdf = pw.Document();
 
@@ -122,10 +131,17 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Text('Order Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              pw.Text(_localization?.paymentReportTitle ?? 'Order Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
               pw.SizedBox(height: 16),
               pw.Table.fromTextArray(
-                headers: ['Item', 'Price', 'Qty', 'Total', 'Responsible', 'Time'],
+                headers: [
+                  _localization?.table ?? 'Item',
+                  _localization?.price ?? 'Price',
+                  _localization?.status ?? 'Qty',
+                  'Total',
+                  _localization?.responsible ?? 'Responsible',
+                  _localization?.time ?? 'Time'
+                ],
                 data: filteredHistory.map((entry) {
                   DateTime entryDate = entry['timestamp'] is Timestamp
                       ? entry['timestamp'].toDate()
@@ -154,15 +170,25 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       ),
     );
 
-    final outputDir = await getTemporaryDirectory();
-    final file = File('${outputDir.path}/order_report_${DateTime.now().millisecondsSinceEpoch}.pdf');
-    await file.writeAsBytes(await pdf.save());
+    try {
+      final outputDir = await getTemporaryDirectory();
+      final file = File('${outputDir.path}/order_report_${DateTime.now().millisecondsSinceEpoch}.pdf');
+      await file.writeAsBytes(await pdf.save());
 
-    final result = await OpenFile.open(file.path);
-    if (result.type != ResultType.done) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to open PDF: ${result.message}')),
-      );
+      final result = await OpenFile.open(file.path);
+      if (result.type != ResultType.done) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${_localization?.failedToOpenPdf ?? 'Failed to open PDF'}: ${result.message}')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error generating PDF: $e')),
+        );
+      }
     }
   }
 
@@ -196,6 +222,13 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Initialize _localization here as well, to ensure it's always available.
+    _localization = AppLocalizations.of(context);
+    if (_localization == null) {
+      // Handle the case where _localization is null, although it should not happen.
+      return const Center(child: Text("Localization not loaded!")); // Or a loading indicator.
+    }
+
     final groupedData = Map.fromEntries(
       groupByDate(filteredHistory).entries.toList()
         ..sort((a, b) => b.key.compareTo(a.key)) // Recent dates first
@@ -228,28 +261,29 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
         }),
     );
 
-
     return Animate(
       effects: [FadeEffect(duration: 600.ms), MoveEffect(begin: Offset(0, 30))],
       child: Scaffold(
         appBar: AppBar(
           title: Text(
-            'Order Report',
-            style: TextStyle(color: Colors.white), // 👈 Makes text white
+            _localization?.orderReport ?? 'Order Report',
+            style: TextStyle(color: Colors.white),
           ),
-          backgroundColor: Color(0xFF4CB050),
-          iconTheme: IconThemeData(color: Colors.white),
+          backgroundColor: const Color(0xFF4CB050),
+          iconTheme: const IconThemeData(color: Colors.white),
           actions: [
-            IconButton(icon: Icon(Icons.download),onPressed: () => exportOrderPDF(context, filteredHistory)),
+            IconButton(
+                icon: const Icon(Icons.download),
+                onPressed: () => exportOrderPDF(context, filteredHistory)),
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: clearFilters,
-          icon: Icon(Icons.clear),
-          label: Text("Clear Filters"),
+          icon: const Icon(Icons.clear),
+          label: Text(_localization?.clearFilters ?? "Clear Filters"),
         ),
         body: isLoading
-            ? Center(child: CircularProgressIndicator())
+            ? const Center(child: CircularProgressIndicator())
             : Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -257,37 +291,37 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
               Row(children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    icon: Icon(Icons.date_range),
+                    icon: const Icon(Icons.date_range),
                     label: Text(fromDate == null
-                        ? 'From Date'
+                        ? _localization?.fromDate ?? 'From Date'
                         : DateFormat('yyyy-MM-dd').format(fromDate!)),
                     onPressed: () => pickDate(context, true),
                   ),
                 ),
-                SizedBox(width: 10),
+                const SizedBox(width: 10),
                 Expanded(
                   child: OutlinedButton.icon(
-                    icon: Icon(Icons.date_range),
+                    icon: const Icon(Icons.date_range),
                     label: Text(toDate == null
-                        ? 'To Date'
+                        ? _localization?.toDate ?? 'To Date'
                         : DateFormat('yyyy-MM-dd').format(toDate!)),
                     onPressed: () => pickDate(context, false),
                   ),
                 ),
               ]),
-              SizedBox(height: 10),
+              const SizedBox(height: 10),
               TextField(
                 decoration: InputDecoration(
-                  prefixIcon: Icon(Icons.search),
-                  labelText: 'Search by item/responsible',
-                  border: OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.search),
+                  labelText: _localization?.search ?? 'Search by item/responsible',
+                  border: const OutlineInputBorder(),
                 ),
                 onChanged: (val) {
                   searchTerm = val;
                   filterData();
                 },
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               Expanded(
                 child: ListView.builder(
                   itemCount: groupedData.length,
@@ -306,10 +340,10 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              DateFormat('EEEE, MMM d, yyyy').format(DateTime.parse(dateKey)),
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              DateFormat('EEEE, MMM d, y').format(DateTime.parse(dateKey)),
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                             ),
-                            SizedBox(height: 2),
+                            const SizedBox(height: 2),
                             Text(
                               'Subtotal: ₹${dayTotal.toStringAsFixed(2)}',
                               style: TextStyle(
@@ -318,11 +352,11 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                 fontSize: 16,
                               ),
                             ),
-                            SizedBox(height: 5),
+                            const SizedBox(height: 5),
                           ],
                         ),
 
-                        SizedBox(height: 5),
+                        const SizedBox(height: 5),
                         ...entries.map((entry) {
                           final ts = entry['timestamp'];
                           DateTime time = ts is Timestamp
@@ -331,34 +365,45 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
 
                           return Card(
                             elevation: 3,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             margin: const EdgeInsets.symmetric(vertical: 8),
                             child: Padding(
                               padding: const EdgeInsets.all(12),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(entry['name'],
-                                      style: TextStyle(
-                                          fontSize: 16, fontWeight: FontWeight.w600)),
-                                  SizedBox(height: 4),
+                                  Text(
+                                    entry['name'],
+                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                  ),
+                                  const SizedBox(height: 4),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text('Qty: ${entry['quantity']}'),
-                                      Text('Price: ₹${entry['price'].toStringAsFixed(2)}'),
-                                      Text('Total: ₹${(entry['price'] * entry['quantity']).toStringAsFixed(2)}'),
+                                      // Positional args, not named:
+                                      Text(
+                                        AppLocalizations.of(context)!.quantity(
+                                          entry['quantity'].toString(),
+                                          entry['price'].toStringAsFixed(2),
+                                        ),
+                                      ),
+                                      Text(
+                                        '${AppLocalizations.of(context)!.total}: ₹${(entry['price'] * entry['quantity']).toStringAsFixed(2)}',
+                                      ),
                                     ],
                                   ),
-                                  SizedBox(height: 4),
+                                  const SizedBox(height: 4),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Text('By: ${entry['responsible']}',
-                                          style: TextStyle(color: Colors.grey.shade700)),
-                                      Text(DateFormat('hh:mm a').format(time),
-                                          style: TextStyle(color: Colors.grey.shade600)),
+                                      Text(
+                                        '${AppLocalizations.of(context)!.by}: ${entry['responsible']}',
+                                        style: TextStyle(color: Colors.grey.shade700),
+                                      ),
+                                      Text(
+                                        DateFormat('hh:mm a').format(time),
+                                        style: TextStyle(color: Colors.grey.shade600),
+                                      ),
                                     ],
                                   ),
                                 ],
@@ -367,7 +412,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                           );
                         }).toList(),
 
-                        Divider(),
+                        const Divider(),
                       ],
                     );
                   },
@@ -380,3 +425,4 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
     );
   }
 }
+

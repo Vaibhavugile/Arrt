@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:animations/animations.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import '../../providers/user_provider.dart';
 
 class AddInventoryScreen extends StatefulWidget {
@@ -33,8 +34,8 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
   }
 
   Future<void> _fetchCategories(String input) async {
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final branchCode = userProvider.branchCode;
+    final branchCode =
+        Provider.of<UserProvider>(context, listen: false).branchCode;
     if (input.isEmpty || branchCode == null) {
       setState(() => _suggestedCategories = []);
       return;
@@ -45,7 +46,7 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
         .doc(branchCode)
         .collection('Inventory')
         .where('category', isGreaterThanOrEqualTo: input)
-        .where('category', isLessThanOrEqualTo: input + '\uf8ff')
+        .where('category', isLessThanOrEqualTo: '$input\uf8ff')
         .get();
 
     final categories = snapshot.docs
@@ -53,81 +54,92 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
         .toSet()
         .toList();
 
-    setState(() {
-      _suggestedCategories = categories;
-    });
+    setState(() => _suggestedCategories = categories);
   }
 
-  double _convertQuantity(double quantity) {
+  double _convertQuantity(double q) {
     switch (_unit) {
       case 'kilograms':
       case 'liters':
-        return quantity * 1000;
+        return q * 1000;
       default:
-        return quantity;
+        return q;
     }
   }
 
   Future<void> _handleAddIngredient() async {
-    final ingredientName = _ingredientNameController.text.trim();
-    final quantity = double.tryParse(_quantityController.text.trim());
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final branchCode = userProvider.branchCode;
+    final loc = AppLocalizations.of(context)!;
+    final name = _ingredientNameController.text.trim();
+    final qty = double.tryParse(_quantityController.text.trim());
+    final cat = _category?.trim() ?? '';
+    final branchCode =
+        Provider.of<UserProvider>(context, listen: false).branchCode;
 
-    if (ingredientName.isEmpty || quantity == null || branchCode == null || _category!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please fill in all fields')));
+    if (name.isEmpty || qty == null || cat.isEmpty || branchCode == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.fillAllFields)),
+      );
       return;
     }
 
-    final confirmed = await showModal(
+    final confirmed = await showModal<bool>(
       context: context,
       configuration: FadeScaleTransitionConfiguration(),
-      builder: (context) => AlertDialog(
-        title: Text("Confirm Add"),
-        content: Text("Are you sure you want to add this ingredient to inventory?"),
+      builder: (c) => AlertDialog(
+        title: Text(loc.confirmAddTitle),
+        content: Text(loc.confirmAddMessage),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text("Cancel")),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: Text("Confirm")),
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: Text(loc.cancel),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: Text(loc.confirm),
+          ),
         ],
       ),
     );
 
     if (confirmed != true) return;
 
-    final standardizedQuantity = _convertQuantity(quantity);
+    final standardized = _convertQuantity(qty);
 
     try {
-      final inventoryRef = FirebaseFirestore.instance
+      final invRef = FirebaseFirestore.instance
           .collection('tables')
           .doc(branchCode)
           .collection('Inventory');
-
-      final docRef = await inventoryRef.add({
-        'ingredientName': ingredientName,
-        'category': _category,
-        'quantity': standardizedQuantity,
+      final docRef = await invRef.add({
+        'ingredientName': name,
+        'category': cat,
+        'quantity': standardized,
         'unit': _unit,
       });
-
       await docRef.collection('History').add({
-        'quantityAdded': standardizedQuantity,
-        'updatedQuantity': standardizedQuantity,
+        'quantityAdded': standardized,
+        'updatedQuantity': standardized,
         'action': 'Add Inventory',
         'updatedAt': DateTime.now(),
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Ingredient added successfully!')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.addSuccess)),
+      );
       Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error adding ingredient')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.addFailed)),
+      );
     }
   }
 
-  Widget _buildTextField(
-      {required String label,
-        required TextEditingController controller,
-        TextInputType inputType = TextInputType.text,
-        Function(String)? onChanged}) {
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+    TextInputType inputType = TextInputType.text,
+    Function(String)? onChanged,
+  }) {
     return TextField(
       controller: controller,
       keyboardType: inputType,
@@ -137,7 +149,8 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+          borderSide:
+          BorderSide(color: Theme.of(context).colorScheme.primary),
         ),
       ),
     );
@@ -145,9 +158,10 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
 
   Widget _buildCategoryChips() {
     return AnimatedSwitcher(
-      duration: Duration(milliseconds: 300),
-      child: _suggestedCategories.isNotEmpty
-          ? Wrap(
+      duration: const Duration(milliseconds: 300),
+      child: _suggestedCategories.isEmpty
+          ? const SizedBox.shrink()
+          : Wrap(
         spacing: 8,
         runSpacing: 8,
         children: _suggestedCategories.map((cat) {
@@ -163,76 +177,99 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
             },
           );
         }).toList(),
-      )
-          : SizedBox.shrink(),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Color(0xFF4CB050),
-        title: Text(
-          'Add Inventory',
-          style: TextStyle(color: Colors.white), // 👈 Makes text white
-        ),
-        iconTheme: IconThemeData(color: Colors.white), // optional: makes back icon white too
-      ),       body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+        backgroundColor: const Color(0xFF4CB050),
+        title: Text(loc.addInventoryTitle,
+            style: const TextStyle(color: Colors.white)),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           elevation: 6,
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Ingredient Info", style: Theme.of(context).textTheme.titleLarge),
-                SizedBox(height: 16),
-                _buildTextField(label: "Ingredient Name", controller: _ingredientNameController),
-                SizedBox(height: 16),
+                Text(loc.ingredientInfoHeading,
+                    style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 16),
+
                 _buildTextField(
-                  label: "Category",
+                  label: loc.ingredientNameLabel,
+                  controller: _ingredientNameController,
+                ),
+                const SizedBox(height: 16),
+
+                _buildTextField(
+                  label: loc.categoryLabel,
                   controller: _categoryController,
-                  onChanged: (val) {
-                    _category = val;
-                    _fetchCategories(val);
+                  onChanged: (v) {
+                    _category = v;
+                    _fetchCategories(v);
                   },
                 ),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 _buildCategoryChips(),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
+
                 _buildTextField(
-                  label: "Quantity",
+                  label: loc.quantityLabel,
                   controller: _quantityController,
-                  inputType: TextInputType.number,
+                  inputType: TextInputType.numberWithOptions(decimal: true),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
+
                 InputDecorator(
                   decoration: InputDecoration(
-                    labelText: "Unit",
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    labelText: loc.unitLabel,
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       value: _unit,
                       isExpanded: true,
-                      onChanged: (val) => setState(() => _unit = val!),
-                      items: ['grams', 'kilograms', 'liters', 'milliliters', 'pieces', 'boxes']
-                          .map((unit) => DropdownMenuItem(value: unit, child: Text(unit)))
+                      onChanged: (v) => setState(() {
+                        if (v != null) _unit = v;
+                      }),
+                      items: [
+                        'grams',
+                        'kilograms',
+                        'liters',
+                        'milliliters',
+                        'pieces',
+                        'boxes'
+                      ]
+                          .map((u) =>
+                          DropdownMenuItem(value: u, child: Text(u)))
                           .toList(),
                     ),
                   ),
                 ),
-                SizedBox(height: 28),
+                const SizedBox(height: 28),
+
                 Center(
                   child: ElevatedButton.icon(
-                    icon: Icon(Icons.add),
-                    label: Text("Add Ingredient"),
+                    icon: const Icon(Icons.add),
+                    label: Text(loc.addButton),
                     style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 32, vertical: 14),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                       elevation: 3,
                     ),
                     onPressed: _handleAddIngredient,

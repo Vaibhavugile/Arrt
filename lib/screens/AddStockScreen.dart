@@ -2,11 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
-import'package:art/providers/user_provider.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:art/providers/user_provider.dart';
 import 'package:provider/provider.dart';
 
 class AddStockScreen extends StatefulWidget {
-  const AddStockScreen({super.key});
+  const AddStockScreen({Key? key}) : super(key: key);
 
   @override
   State<AddStockScreen> createState() => _AddStockScreenState();
@@ -29,173 +30,154 @@ class _AddStockScreenState extends State<AddStockScreen> {
 
   @override
   void initState() {
-
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      setState(() {
-        branchCode = userProvider.branchCode!;
-      });
-
-    fetchVendors();
+      branchCode =
+      Provider.of<UserProvider>(context, listen: false).branchCode!;
+      fetchVendors();
     });
   }
 
   Future<void> fetchVendors() async {
-    final snapshot = await FirebaseFirestore.instance
+    final snap = await FirebaseFirestore.instance
         .collection('tables')
         .doc(branchCode)
         .collection('Vendors')
         .get();
-    setState(() {
-      vendors = snapshot.docs;
-    });
+    setState(() => vendors = snap.docs);
   }
 
   void loadCategories() {
-    final vendor = vendors.firstWhereOrNull((v) => v.id == selectedVendorId);
-    if (vendor != null) {
-      final data = vendor.data() as Map<String, dynamic>;
-      if (data.containsKey('categories')) {
-        setState(() {
-          categories = List<String>.from(data['categories']);
-        });
-      }
+    final v = vendors.firstWhereOrNull((v) => v.id == selectedVendorId);
+    if (v != null) {
+      final data = v.data() as Map<String, dynamic>;
+      setState(() {
+        categories = List<String>.from(data['categories'] ?? []);
+      });
     }
   }
 
   Future<void> fetchItems() async {
     if (selectedCategory == null) return;
-    final snapshot = await FirebaseFirestore.instance
+    final snap = await FirebaseFirestore.instance
         .collection('tables')
         .doc(branchCode)
         .collection('Inventory')
         .where('category', isEqualTo: selectedCategory)
         .get();
-    setState(() {
-      items = snapshot.docs;
-    });
+    setState(() => items = snap.docs);
   }
 
   void updateCurrentQuantity() {
-    final selectedItem = items.firstWhereOrNull((i) => i.id == selectedItemId);
-    if (selectedItem != null) {
-      final quantity = selectedItem['quantity'];
-      setState(() {
-        currentQuantity = quantity is int ? quantity : 0;
-      });
-      print('Selected Item Data: ${selectedItem.data()}');
+    final doc =
+    items.firstWhereOrNull((i) => i.id == selectedItemId);
+    if (doc != null) {
+      final qty = doc['quantity'];
+      setState(() => currentQuantity = (qty is int ? qty : 0));
     } else {
-      setState(() {
-        currentQuantity = 0;
-      });
-      print('Selected item not found.');
+      setState(() => currentQuantity = 0);
     }
   }
 
   void handleAddStockEntry() {
-    final updatedQuantity = currentQuantity + quantityToAdd;
-    stockEntries.add({
-      'vendorId': selectedVendorId,
-      'category': selectedCategory,
-      'itemId': selectedItemId,
-      'quantityToAdd': quantityToAdd,
-      'price': price,
-      'invoiceDate': invoiceDate,
-      'updatedQuantity': updatedQuantity,
-    });
-
+    final updated = currentQuantity + quantityToAdd;
     setState(() {
+      stockEntries.add({
+        'vendorId': selectedVendorId,
+        'category': selectedCategory,
+        'itemId': selectedItemId,
+        'quantityToAdd': quantityToAdd,
+        'price': price,
+        'invoiceDate': invoiceDate,
+        'updatedQuantity': updated,
+      });
+      // reset row
       selectedCategory = null;
       selectedItemId = null;
       quantityToAdd = 0;
-      price = 0;
-      currentQuantity = updatedQuantity;
+      price = 0.0;
+      currentQuantity = updated;
+      items = [];
     });
   }
 
   Future<void> handleSubmit() async {
-    for (var entry in stockEntries) {
+    final loc = AppLocalizations.of(context)!;
+    for (var e in stockEntries) {
       final itemRef = FirebaseFirestore.instance
           .collection('tables')
           .doc(branchCode)
           .collection('Inventory')
-          .doc(entry['itemId']);
-
+          .doc(e['itemId']);
       final vendorRef = FirebaseFirestore.instance
           .collection('tables')
           .doc(branchCode)
           .collection('Vendors')
-          .doc(entry['vendorId']);
+          .doc(e['vendorId']);
 
-      final itemSnapshot = await itemRef.get();
-      final ingredientName = itemSnapshot['ingredientName'];
+      final itemSnap = await itemRef.get();
+      final name = itemSnap['ingredientName'];
 
-      // Add to vendor stock
       await vendorRef.collection('Stock').add({
-        'invoiceDate': entry['invoiceDate'],
-        'category': entry['category'],
-        'ingredientName': ingredientName,
-        'quantityAdded': entry['quantityToAdd'],
-        'price': entry['price'],
+        'invoiceDate': e['invoiceDate'],
+        'category': e['category'],
+        'ingredientName': name,
+        'quantityAdded': e['quantityToAdd'],
+        'price': e['price'],
         'branchCode': branchCode,
-        'updatedQuantity': entry['updatedQuantity'],
+        'updatedQuantity': e['updatedQuantity'],
       });
 
-      // Update inventory
       await itemRef.update({
-        'quantity': entry['updatedQuantity'],
-        'lastUpdated': entry['invoiceDate'],
+        'quantity': e['updatedQuantity'],
+        'lastUpdated': e['invoiceDate'],
       });
 
-      // Add to history
       await itemRef.collection('History').add({
-        'invoiceDate': entry['invoiceDate'],
-        'quantityAdded': entry['quantityToAdd'],
-        'price': entry['price'],
-        'updatedQuantity': entry['updatedQuantity'],
-        'action': 'Add Stock',
+        'invoiceDate': e['invoiceDate'],
+        'quantityAdded': e['quantityToAdd'],
+        'price': e['price'],
+        'updatedQuantity': e['updatedQuantity'],
+        'action':  'Add Stock',
         'updatedAt': Timestamp.now(),
       });
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Stocks updated successfully!')),
+      SnackBar(content: Text(loc.submitSuccess)),
     );
-
-    setState(() {
-      stockEntries.clear();
-    });
+    setState(() => stockEntries.clear());
   }
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Color(0xFF4CB050),
-        title: Text(
-          'Add Stock',
-          style: TextStyle(color: Colors.white), // 👈 Makes text white
-        ),
-        iconTheme: IconThemeData(color: Colors.white), // optional: makes back icon white too
-      ),       body: Padding(
+        backgroundColor: const Color(0xFF4CB050),
+        title: Text(loc.addStockTitle,
+            style: const TextStyle(color: Colors.white)),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Padding(
         padding: const EdgeInsets.all(16),
         child: ListView(
           children: [
             DropdownButtonFormField<String>(
               value: selectedVendorId,
-              decoration: const InputDecoration(labelText: 'Select Vendor'),
+              decoration:
+              InputDecoration(labelText: loc.selectVendor),
               items: vendors
-                  .map((vendor) => DropdownMenuItem(
-                value: vendor.id,
-                child: Text(vendor['name']),
+                  .map((v) => DropdownMenuItem(
+                value: v.id,
+                child: Text(v['name']),
               ))
                   .toList(),
-              onChanged: (value) {
+              onChanged: (v) {
                 setState(() {
-                  selectedVendorId = value;
+                  selectedVendorId = v;
                   selectedCategory = null;
-                  categories = [];
                   items = [];
                 });
                 loadCategories();
@@ -204,16 +186,17 @@ class _AddStockScreenState extends State<AddStockScreen> {
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               value: selectedCategory,
-              decoration: const InputDecoration(labelText: 'Select Category'),
+              decoration:
+              InputDecoration(labelText: loc.selectCategory),
               items: categories
-                  .map((category) => DropdownMenuItem(
-                value: category,
-                child: Text(category),
+                  .map((c) => DropdownMenuItem(
+                value: c,
+                child: Text(c),
               ))
                   .toList(),
-              onChanged: (value) {
+              onChanged: (c) {
                 setState(() {
-                  selectedCategory = value;
+                  selectedCategory = c;
                   selectedItemId = null;
                   items = [];
                 });
@@ -223,44 +206,48 @@ class _AddStockScreenState extends State<AddStockScreen> {
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
               value: selectedItemId,
-              decoration: const InputDecoration(labelText: 'Select Item'),
-              items: items.map((item) {
-                return DropdownMenuItem<String>(
-                  value: item.id,
-                  child: Text(item['ingredientName']),
-                );
-              }).toList(),
-              onChanged: (value) {
+              decoration:
+              InputDecoration(labelText: loc.selectItem),
+              items: items
+                  .map((it) => DropdownMenuItem(
+                value: it.id,
+                child: Text(it['ingredientName']),
+              ))
+                  .toList(),
+              onChanged: (i) {
                 setState(() {
-                  selectedItemId = value;
+                  selectedItemId = i;
                 });
-                print("Selected Item ID: $selectedItemId");
                 updateCurrentQuantity();
               },
             ),
             const SizedBox(height: 10),
             TextFormField(
               initialValue: currentQuantity.toString(),
-              decoration: const InputDecoration(labelText: 'Current Quantity'),
+              decoration:
+              InputDecoration(labelText: loc.currentQuantity),
               readOnly: true,
             ),
             const SizedBox(height: 10),
             TextFormField(
-              decoration: const InputDecoration(labelText: 'Quantity to Add'),
+              decoration:
+              InputDecoration(labelText: loc.quantityToAdd),
               keyboardType: TextInputType.number,
-              onChanged: (val) => quantityToAdd = int.tryParse(val) ?? 0,
+              onChanged: (v) =>
+              quantityToAdd = int.tryParse(v) ?? 0,
             ),
             const SizedBox(height: 10),
             TextFormField(
-              decoration: const InputDecoration(labelText: 'Price'),
+              decoration:
+              InputDecoration(labelText: loc.priceLabel),
               keyboardType:
               const TextInputType.numberWithOptions(decimal: true),
-              onChanged: (val) => price = double.tryParse(val) ?? 0.0,
+              onChanged: (v) => price = double.tryParse(v) ?? 0.0,
             ),
             const SizedBox(height: 10),
             ListTile(
               title: Text(
-                  "Invoice Date: ${DateFormat.yMMMd().format(invoiceDate)}"),
+                  '${loc.invoiceDateLabel}: ${DateFormat.yMMMd().format(invoiceDate)}'),
               trailing: const Icon(Icons.calendar_today),
               onTap: () async {
                 final picked = await showDatePicker(
@@ -277,35 +264,34 @@ class _AddStockScreenState extends State<AddStockScreen> {
             const SizedBox(height: 10),
             ElevatedButton(
               onPressed: handleAddStockEntry,
-              child: const Text('Add to List'),
+              child: Text(loc.addToList),
             ),
             const SizedBox(height: 20),
-            if (stockEntries.isNotEmpty)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Stock Entries:',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  ...stockEntries.map((entry) {
-                    final item = items.firstWhereOrNull(
-                            (item) => item.id == entry['itemId']);
-                    return Card(
-                      child: ListTile(
-                        title: Text(item != null
-                            ? item['ingredientName']
-                            : 'Unknown'),
-                        subtitle: Text(
-                            'Qty: ${entry['quantityToAdd']} | Price: ${entry['price']} | Date: ${DateFormat.yMd().format(entry['invoiceDate'])}'),
-                      ),
-                    );
-                  }).toList(),
-                ],
+            if (stockEntries.isNotEmpty) ...[
+              Text(loc.stockEntriesHeader,
+                  style:
+                  const TextStyle(fontWeight: FontWeight.bold)),
+              ...stockEntries.map((e) {
+                final it = items.firstWhereOrNull(
+                        (it) => it.id == e['itemId']);
+                return Card(
+                  child: ListTile(
+                    title:
+                    Text(
+                      ((it?.data() as Map<String, dynamic>?)?['ingredientName']) ?? loc.unknown,
+                    ),
+                    subtitle: Text(
+                        '${loc.qtyLabel}: ${e['quantityToAdd']} | ${loc.priceLabel}: ${e['price']} | ${loc.dateLabel}: ${DateFormat.yMd().format(e['invoiceDate'])}'),
+                  ),
+                );
+              }),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed:
+                stockEntries.isEmpty ? null : handleSubmit,
+                child: Text(loc.submitAll),
               ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: stockEntries.isNotEmpty ? handleSubmit : null,
-              child: const Text('Submit All Entries'),
-            ),
+            ],
           ],
         ),
       ),

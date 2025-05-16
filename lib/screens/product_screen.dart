@@ -7,13 +7,15 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:art/screens/AddProductScreen.dart';
 import 'package:art/screens/EditProductScreen.dart';
-import'package:art/providers/user_provider.dart';
+import 'package:art/providers/user_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:open_file/open_file.dart';
-import 'dart:io';  // This is needed for File operations
+import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // <-- Important
+
 class ProductScreen extends StatefulWidget {
   @override
   State<ProductScreen> createState() => _ProductScreenState();
@@ -39,7 +41,6 @@ class _ProductScreenState extends State<ProductScreen> {
       setState(() {
         branchCode = userProvider.branchCode!;
       });
-
       listenToProducts();
     });
   }
@@ -79,17 +80,17 @@ class _ProductScreenState extends State<ProductScreen> {
     List<Map<String, dynamic>> result = allProducts;
 
     if (selectedSubcategory != 'All') {
-      result = result
-          .where((p) => p['subcategory'] == selectedSubcategory)
-          .toList();
+      result =
+          result.where((p) => p['subcategory'] == selectedSubcategory).toList();
     }
 
     if (searchQuery.isNotEmpty) {
       result = result
-          .where((p) => p['name']
-          .toString()
-          .toLowerCase()
-          .contains(searchQuery.toLowerCase()))
+          .where((p) =>
+          p['name']
+              .toString()
+              .toLowerCase()
+              .contains(searchQuery.toLowerCase()))
           .toList();
     }
 
@@ -105,12 +106,11 @@ class _ProductScreenState extends State<ProductScreen> {
         .collection('products')
         .doc(id)
         .delete();
-    // No need to manually refresh — listener handles it
   }
 
   void importCSV() async {
-    final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom, allowedExtensions: ['csv']);
+    final result = await FilePicker.platform
+        .pickFiles(type: FileType.custom, allowedExtensions: ['csv']);
     if (result == null) return;
 
     final file = result.files.first;
@@ -129,16 +129,18 @@ class _ProductScreenState extends State<ProductScreen> {
             .collection('products')
             .add(product);
       }
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('CSV Imported Successfully')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.csvImported)));
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Failed to import CSV')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context)!.csvFailed)));
     }
   }
 
-  void exportToPDF(BuildContext context, List<Map<String, dynamic>> filteredProducts) async {
+  void exportToPDF(
+      BuildContext context, List<Map<String, dynamic>> filteredProducts) async {
     final pdf = pw.Document();
+    final loc = AppLocalizations.of(context)!;
 
     pdf.addPage(
       pw.Page(
@@ -146,15 +148,19 @@ class _ProductScreenState extends State<ProductScreen> {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Text('Product Export', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              pw.Text(loc.productExport,
+                  style:
+                  pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
               pw.SizedBox(height: 16),
               pw.Table.fromTextArray(
                 headers: ['Name', 'Price', 'Subcategory'],
-                data: filteredProducts.map((p) => [
+                data: filteredProducts
+                    .map((p) => [
                   p['name']?.toString() ?? '',
                   p['price']?.toString() ?? '',
                   p['subcategory']?.toString() ?? ''
-                ]).toList(),
+                ])
+                    .toList(),
                 headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                 headerDecoration: pw.BoxDecoration(color: PdfColors.grey300),
                 cellAlignment: pw.Alignment.centerLeft,
@@ -166,14 +172,15 @@ class _ProductScreenState extends State<ProductScreen> {
     );
 
     final outputDir = await getTemporaryDirectory();
-    final file = File('${outputDir.path}/product_export_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    final file = File(
+        '${outputDir.path}/product_export_${DateTime.now().millisecondsSinceEpoch}.pdf');
     await file.writeAsBytes(await pdf.save());
 
     final result = await OpenFile.open(file.path);
     if (result.type != ResultType.done) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to open PDF: ${result.message}')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('${loc.pdfOpenFailed}: ${result.message}'),
+      ));
     }
   }
 
@@ -186,25 +193,27 @@ class _ProductScreenState extends State<ProductScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Products', style: TextStyle(color: Colors.white),),
+        title: Text(loc.products, style: TextStyle(color: Colors.white)),
         backgroundColor: Color(0xFF4CB050),
         iconTheme: IconThemeData(color: Colors.white),
         actions: [
           IconButton(icon: Icon(Icons.file_upload), onPressed: importCSV),
-          IconButton(icon: Icon(Icons.file_download), onPressed: () => exportToPDF(context, filteredProducts),),
+          IconButton(
+              icon: Icon(Icons.file_download),
+              onPressed: () => exportToPDF(context, filteredProducts)),
         ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => AddProductScreen()),
-          );
+          Navigator.push(context,
+              MaterialPageRoute(builder: (context) => AddProductScreen()));
         },
         child: Icon(Icons.add),
-        tooltip: 'Add Product',
+        tooltip: loc.addProduct,
       ),
       body: Padding(
         padding: EdgeInsets.all(12),
@@ -215,7 +224,7 @@ class _ProductScreenState extends State<ProductScreen> {
                 Expanded(
                   child: TextField(
                     decoration: InputDecoration(
-                      hintText: 'Search by name...',
+                      hintText: loc.searchHint,
                       prefixIcon: Icon(Icons.search),
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10)),
@@ -234,7 +243,9 @@ class _ProductScreenState extends State<ProductScreen> {
                   items: subcategories.map((subcategory) {
                     return DropdownMenuItem(
                       value: subcategory,
-                      child: Text(subcategory),
+                      child: Text(subcategory == 'All'
+                          ? loc.subcategoryAll
+                          : subcategory),
                     );
                   }).toList(),
                   onChanged: (value) {
@@ -249,18 +260,17 @@ class _ProductScreenState extends State<ProductScreen> {
             SizedBox(height: 12),
             Expanded(
               child: filteredProducts.isEmpty
-                  ? Center(child: Text('No products found'))
+                  ? Center(child: Text(loc.noProducts))
                   : ListView.builder(
                 itemCount: filteredProducts.length + 1,
                 itemBuilder: (context, index) {
                   if (index == filteredProducts.length) {
                     return filteredProducts.length < allProducts.length
                         ? Center(
-                      child: TextButton(
-                        onPressed: loadMore,
-                        child: Text('Load More'),
-                      ),
-                    )
+                        child: TextButton(
+                          onPressed: loadMore,
+                          child: Text(loc.loadMore),
+                        ))
                         : SizedBox.shrink();
                   }
 
@@ -287,20 +297,20 @@ class _ProductScreenState extends State<ProductScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              icon: Icon(Icons.edit, color: Colors.indigo),
+                              icon:
+                              Icon(Icons.edit, color: Colors.indigo),
                               onPressed: () => Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => EditProductScreen(
-                                    productId: p['id'],
-                                      branchCode: branchCode// Assuming `p['id']` is the ID of the product you want to edit
-                                  ),
+                                      productId: p['id'],
+                                      branchCode: branchCode),
                                 ),
                               ),
                             ),
-
                             IconButton(
-                              icon: Icon(Icons.delete, color: Colors.red),
+                              icon:
+                              Icon(Icons.delete, color: Colors.red),
                               onPressed: () => deleteProduct(p['id']),
                             ),
                           ],

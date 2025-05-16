@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // generated localization
 import '../../providers/user_provider.dart';
 
 class AddVendorPage extends StatefulWidget {
@@ -81,22 +82,26 @@ class _AddVendorPageState extends State<AddVendorPage> {
         .collection('Vendors')
         .add(vendorData);
 
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Vendor added successfully')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.of(context)!.vendorAddedSuccessfully)),
+    );
     Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Color(0xFF4CB050),
+        backgroundColor: const Color(0xFF4CB050),
         title: Text(
-          'Add vendor',
-          style: TextStyle(color: Colors.white), // 👈 Makes text white
+          loc.addVendor,
+          style: const TextStyle(color: Colors.white),
         ),
-        iconTheme: IconThemeData(color: Colors.white), // optional: makes back icon white too
-      ),      body: loading
-          ? Center(child: CircularProgressIndicator())
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
           : Padding(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -104,23 +109,23 @@ class _AddVendorPageState extends State<AddVendorPage> {
           child: ListView(
             children: [
               TextFormField(
-                decoration: InputDecoration(labelText: 'Vendor Name'),
+                decoration: InputDecoration(labelText: loc.vendorName),
                 onChanged: (val) => name = val,
-                validator: (val) => val!.isEmpty ? 'Required' : null,
+                validator: (val) => val!.isEmpty ? loc.requiredField : null,
               ),
               TextFormField(
-                decoration: InputDecoration(labelText: 'Contact Number'),
+                decoration: InputDecoration(labelText: loc.contactNumber),
                 keyboardType: TextInputType.phone,
                 onChanged: (val) => contactNo = val,
-                validator: (val) => val!.isEmpty ? 'Required' : null,
+                validator: (val) => val!.isEmpty ? loc.requiredField : null,
               ),
               TextFormField(
-                decoration: InputDecoration(labelText: 'Address'),
+                decoration: InputDecoration(labelText: loc.address),
                 onChanged: (val) => address = val,
-                validator: (val) => val!.isEmpty ? 'Required' : null,
+                validator: (val) => val!.isEmpty ? loc.requiredField : null,
               ),
-              SizedBox(height: 20),
-              Text('Select Categories'),
+              const SizedBox(height: 20),
+              Text(loc.selectCategories),
               Wrap(
                 spacing: 8,
                 children: allCategories.map((cat) {
@@ -141,12 +146,12 @@ class _AddVendorPageState extends State<AddVendorPage> {
                   );
                 }).toList(),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               for (final category in selectedCategories)
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Select items from $category'),
+                    Text('${loc.selectItemsFrom} $category'),
                     Wrap(
                       spacing: 8,
                       children: itemsByCategory[category]!
@@ -154,7 +159,8 @@ class _AddVendorPageState extends State<AddVendorPage> {
                         final itemId = item['id'];
                         final selected = selectedItems[category]?.contains(itemId) ?? false;
                         return FilterChip(
-                          label: Text('${item['ingredientName']} (${item['quantity']} ${item['unit']})'),
+                          label: Text(
+                              '${item['ingredientName']} (${item['quantity']} ${item['unit']})'),
                           selected: selected,
                           onSelected: (val) {
                             setState(() {
@@ -170,17 +176,17 @@ class _AddVendorPageState extends State<AddVendorPage> {
                       })
                           .toList(),
                     ),
-                    SizedBox(height: 10),
+                    const SizedBox(height: 10),
                   ],
                 ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
                   if (_formKey.currentState!.validate()) {
                     submitVendor();
                   }
                 },
-                child: Text('Add Vendor'),
+                child: Text(loc.addVendor),
               )
             ],
           ),
