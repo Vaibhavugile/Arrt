@@ -192,7 +192,6 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
         'name': _nameController.text.trim(),
         'branchCode': _branchCode,
         'price': double.tryParse(_priceController.text) ?? 0.0,
-        'category': _categoryController.text.trim(),
         'subcategory': _subcategoryController.text.trim(),
         'ingredients': _ingredients
             .where((ing) => ing['ingredientName']!.isNotEmpty && ing['quantityUsed']!.isNotEmpty)
@@ -376,7 +375,6 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
                   children: [
                     _buildTextField(_nameController, 'product_name', TextInputType.text),
                     _buildTextField(_priceController, 'price', TextInputType.number),
-                    _buildCategoryField(),
                     _buildSubcategoryField(),
                     SizedBox(height: 20),
                     Text(loc.ingredients, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),

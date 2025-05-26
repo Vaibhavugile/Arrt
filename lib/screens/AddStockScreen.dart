@@ -65,32 +65,46 @@ class _AddStockScreenState extends State<AddStockScreen> {
         .collection('Inventory')
         .where('category', isEqualTo: selectedCategory)
         .get();
-    setState(() => items = snap.docs);
+    setState(() {
+      items = snap.docs;
+    });
+
+    // Only update quantity if an item is already selected
+    if (selectedItemId != null) {
+      updateCurrentQuantity();
+    }
   }
 
+
   void updateCurrentQuantity() {
-    final doc =
-    items.firstWhereOrNull((i) => i.id == selectedItemId);
+    final doc = items.firstWhereOrNull((i) => i.id == selectedItemId);
     if (doc != null) {
       final qty = doc['quantity'];
+      print('Fetched current quantity: $qty');
       setState(() => currentQuantity = (qty is int ? qty : 0));
     } else {
+      print('Item not found for id: $selectedItemId');
       setState(() => currentQuantity = 0);
     }
   }
 
+
   void handleAddStockEntry() {
+    final selectedItem = items.firstWhereOrNull((i) => i.id == selectedItemId);
     final updated = currentQuantity + quantityToAdd;
+
     setState(() {
       stockEntries.add({
         'vendorId': selectedVendorId,
         'category': selectedCategory,
         'itemId': selectedItemId,
+        'ingredientName': selectedItem?['ingredientName'] ?? '',
         'quantityToAdd': quantityToAdd,
         'price': price,
         'invoiceDate': invoiceDate,
         'updatedQuantity': updated,
       });
+
       // reset row
       selectedCategory = null;
       selectedItemId = null;
@@ -98,8 +112,10 @@ class _AddStockScreenState extends State<AddStockScreen> {
       price = 0.0;
       currentQuantity = updated;
       items = [];
+      quantityToAdd = 0 ;
     });
   }
+
 
   Future<void> handleSubmit() async {
     final loc = AppLocalizations.of(context)!;
@@ -218,16 +234,16 @@ class _AddStockScreenState extends State<AddStockScreen> {
                 setState(() {
                   selectedItemId = i;
                 });
-                updateCurrentQuantity();
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  updateCurrentQuantity();
+                });
               },
+
+
             ),
             const SizedBox(height: 10),
-            TextFormField(
-              initialValue: currentQuantity.toString(),
-              decoration:
-              InputDecoration(labelText: loc.currentQuantity),
-              readOnly: true,
-            ),
+            Text('${loc.currentQuantity}: $currentQuantity'),
+
             const SizedBox(height: 10),
             TextFormField(
               decoration:
@@ -272,14 +288,12 @@ class _AddStockScreenState extends State<AddStockScreen> {
                   style:
                   const TextStyle(fontWeight: FontWeight.bold)),
               ...stockEntries.map((e) {
-                final it = items.firstWhereOrNull(
-                        (it) => it.id == e['itemId']);
+
                 return Card(
                   child: ListTile(
                     title:
-                    Text(
-                      ((it?.data() as Map<String, dynamic>?)?['ingredientName']) ?? loc.unknown,
-                    ),
+                    Text(e['ingredientName'] ?? loc.unknown),
+
                     subtitle: Text(
                         '${loc.qtyLabel}: ${e['quantityToAdd']} | ${loc.priceLabel}: ${e['price']} | ${loc.dateLabel}: ${DateFormat.yMd().format(e['invoiceDate'])}'),
                   ),
