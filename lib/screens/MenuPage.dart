@@ -4,6 +4,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:art/providers/user_provider.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
+import 'kot_screen.dart';
 
 class MenuPage extends StatefulWidget {
   final String tableId;
@@ -24,6 +25,7 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
   final ValueNotifier<List<Map<String, dynamic>>> _ordersNotifier = ValueNotifier([]);
   String? tableNumber;
   String? orderStatus;
+  final List<Map<String, dynamic>> _pendingVoids = [];
 
   TabController? _tabController;
   String searchQuery = '';
@@ -67,6 +69,10 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
     });
   }
 
+// Inside _MenuPageState
+
+  // Inside _MenuPageState
+
   void _listenToTable() {
     _db
         .collection('tables')
@@ -77,14 +83,25 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
         .listen((snap) {
       final data = snap.data();
       if (data != null && mounted) {
-        _ordersNotifier.value = List<Map<String, dynamic>>.from(data['orders'] ?? []);
+        final List<Map<String, dynamic>> fetchedOrders =
+        List<Map<String, dynamic>>.from(data['orders'] ?? []);
+
+        final List<Map<String, dynamic>> processedOrders = fetchedOrders.map((order) {
+          return {
+            ...order,
+            'sentToKot': order['sentToKot'] ?? false,
+            'lastSentQuantity': order['lastSentQuantity'] ?? 0,
+            'voidPending': order['voidPending'] ?? 0, // Initialize voidPending
+          };
+        }).toList();
+
+        _ordersNotifier.value = processedOrders;
         tableNumber = data['tableNumber']?.toString();
         orderStatus = data['orderStatus']?.toString();
         setState(() {});
       }
     });
   }
-
   Future<void> _updateOrders() async {
     await _db
         .collection('tables')
@@ -93,7 +110,9 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
         .doc(widget.tableId)
         .update({'orders': _ordersNotifier.value});
   }
+// Inside _MenuPageState
 
+// Modify _addProduct:
   void _addProduct(String productId, BuildContext ctx, GlobalKey key) {
     final prod = products.firstWhere((p) => p['id'] == productId);
     final orders = [..._ordersNotifier.value];
@@ -101,12 +120,17 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
 
     if (idx >= 0) {
       orders[idx]['quantity'] += 1;
+      // Mark as unsent because quantity changed
+      orders[idx]['sentToKot'] = false;
+      // No need to reset lastSentQuantity here, it's used when sending new items.
     } else {
       orders.add({
         'name': prod['name'],
         'price': prod['price'],
         'quantity': 1,
         'ingredients': prod['ingredients'] ?? [],
+        'sentToKot': false,
+        'lastSentQuantity': 0, // Initialize to 0 for new items
       });
     }
 
@@ -115,20 +139,156 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
     _runAddToCartAnimation(ctx, key);
   }
 
+// Modify _changeQuantity:
+// Inside _MenuPageState
+
+// Modify _changeQuantity:
+  // Inside _MenuPageState
+
+// Inside _MenuPageState
+
   void _changeQuantity(int idx, int delta) {
     final orders = [..._ordersNotifier.value];
-    final newQty = (orders[idx]['quantity'] ?? 0) + delta;
-    if (newQty <= 0) {
-      orders.removeAt(idx);
+    final item = orders[idx];
+
+    final currentQuantityInCart = item['quantity'] as int;
+    final lastSentQuantity = item['lastSentQuantity'] as int;
+    final currentVoidPending = item['voidPending'] as int? ?? 0;
+
+    final newQuantityInCart = currentQuantityInCart + delta;
+
+    if (newQuantityInCart <= 0) {
+      // Case: Item is being completely removed or quantity reduced to zero.
+      final effectiveSentQuantity = lastSentQuantity - currentVoidPending;
+
+      if (effectiveSentQuantity > 0) {
+        // If there's anything *previously sent* that needs to be voided
+        // Add this as a 'void_full' to the _pendingVoids list
+        _pendingVoids.add({
+          'name': item['name'],
+          'quantity': effectiveSentQuantity, // Void the effectively sent amount
+          'type': 'void_full',
+        });
+      }
+      orders.removeAt(idx); // Remove the item from the local list
     } else {
-      orders[idx]['quantity'] = newQty;
+      // Case: Quantity is reduced but not to zero, or increased (delta > 0).
+
+      if (delta < 0) {
+        // Quantity is reduced
+        final reductionAmount = -delta;
+        final effectivelySentAmount = lastSentQuantity - currentVoidPending;
+
+        if (reductionAmount > 0 && effectivelySentAmount > 0) {
+          // Void only what is effectively sent and being reduced
+          final actualVoidForThisReduction = (reductionAmount > effectivelySentAmount)
+              ? effectivelySentAmount
+              : reductionAmount;
+          item['voidPending'] = currentVoidPending + actualVoidForThisReduction;
+        }
+      }
+      item['quantity'] = newQuantityInCart;
+      item['sentToKot'] = false; // Mark as unsent, indicating a pending change
     }
+
     _ordersNotifier.value = orders;
+    // This will trigger _updateOrders which will persist to Firestore
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateOrders();
     });
-  }
+  }  // Inside _MenuPageState
 
+// Inside _MenuPageState
+
+  // Inside _MenuPageState
+
+  // Inside _MenuPageState
+
+  Future<void> _sendKOT() async {
+    List<Map<String, dynamic>> kotItemsToSend = [];
+    List<Map<String, dynamic>> updatedOrdersForLocalState = []; // For _ordersNotifier.value
+
+    // --- Process items currently in the cart (_ordersNotifier.value) ---
+    for (var item in _ordersNotifier.value) {
+      final currentQuantity = item['quantity'] as int;
+      final lastSentQuantity = item['lastSentQuantity'] as int;
+      final voidPending = item['voidPending'] as int? ?? 0;
+
+      // Process Additions
+      if (currentQuantity > lastSentQuantity) {
+        final additionalQuantity = currentQuantity - lastSentQuantity;
+        kotItemsToSend.add({
+          'name': item['name'],
+          'price': item['price'],
+          'quantity': additionalQuantity,
+          'type': 'add',
+          'ingredients': item['ingredients'] ?? [],
+        });
+        // Mark for local update: new lastSentQuantity
+        item['lastSentQuantity'] = currentQuantity;
+        item['sentToKot'] = true; // Mark as processed for this KOT batch
+      }
+
+      // Process Partial Voids (only if item still exists in cart)
+      if (voidPending > 0) {
+        kotItemsToSend.add({
+          'name': item['name'],
+          'quantity': voidPending,
+          'type': 'void_partial',
+        });
+        // Mark for local update: reset voidPending
+        item['voidPending'] = 0;
+      }
+
+      // Add the item to the list that will update _ordersNotifier.value
+      updatedOrdersForLocalState.add(item);
+    }
+
+    // --- Process items in _pendingVoids (for full removals) ---
+    if (_pendingVoids.isNotEmpty) {
+      kotItemsToSend.addAll(_pendingVoids); // Add all pending full voids
+    }
+
+
+    if (kotItemsToSend.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No pending KOT updates (additions or voids).')),
+      );
+      return;
+    }
+
+    try {
+      // Send a single KOT document containing all additions and voids
+      await _db
+          .collection('tables')
+          .doc(branchCode)
+          .collection('tables')
+          .doc(widget.tableId)
+          .collection('kots')
+          .add({
+        'timestamp': FieldValue.serverTimestamp(),
+        'items': kotItemsToSend,
+        'status': 'pending', // Initial status for this batch of updates
+        'tableNumber': tableNumber,
+        // 'userId': Provider.of<UserProvider>(context, listen: false).user?.uid,
+      });
+
+      // Update the local state (_ordersNotifier.value) based on processed items
+      _ordersNotifier.value = updatedOrdersForLocalState;
+      _pendingVoids.clear(); // Clear the full voids list after sending
+
+      await _updateOrders(); // Persist the updated state to Firestore
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('KOT update sent successfully!')),
+      );
+    } catch (e) {
+      print("Error sending KOT: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to send KOT update. Please try again.')),
+      );
+    }
+  }
   void _runAddToCartAnimation(BuildContext context, GlobalKey targetKey) {
     final overlay = Overlay.of(context);
     final renderBox = context.findRenderObject() as RenderBox;
@@ -148,12 +308,14 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
     });
   }
 
+  // Inside _MenuPageState
+  // Inside _MenuPageState
   void _showCartSheet() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
+      shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => ValueListenableBuilder<List<Map<String, dynamic>>>(
@@ -164,9 +326,9 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
           maxChildSize: 0.85,
           expand: false,
           builder: (_, controller) => Padding(
-            padding: EdgeInsets.all(12),
-            child: ListView(
-              controller: controller,
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              // Use Column instead of ListView directly for fixed button at bottom
               children: [
                 Center(
                   child: Container(
@@ -178,51 +340,95 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
                     ),
                   ),
                 ),
-                SizedBox(height: 16),
-                Text('Current Order',
+                const SizedBox(height: 16),
+                const Text('Current Order',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                SizedBox(height: 8),
+                const SizedBox(height: 8),
                 if (orders.isEmpty)
-                  Center(child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('No items yet', style: TextStyle(color: Colors.grey)),
-                  ))
+                  const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text('No items yet', style: TextStyle(color: Colors.grey)),
+                      ))
                 else
-                  ...orders.asMap().entries.map((e) {
-                    final idx = e.key;
-                    final o = e.value;
-                    return Padding(
-                      padding: EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${o['quantity']} x ${o['name']}',
-                              style: const TextStyle(fontSize: 16),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Text(
-                            '₹${(o['price'] * o['quantity']).toStringAsFixed(2)}',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Row(
+                  Expanded(
+                    // Wrap ListView with Expanded
+                    child: ListView(
+                      controller: controller,
+                      children: orders.asMap().entries.map((e) {
+                        final idx = e.key;
+                        final o = e.value;
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove_circle_outline),
-                                onPressed: () => _changeQuantity(idx, -1),
+                              Expanded(
+                                child: Text(
+                                  '${o['quantity']} x ${o['name']}',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    // Add a style to show if it's already sent or has pending voids
+                                    color: (o['sentToKot'] == true && (o['voidPending'] as int? ?? 0) == 0) ? Colors.grey : Colors.black,
+                                    fontStyle: (o['sentToKot'] == true && (o['voidPending'] as int? ?? 0) == 0) ? FontStyle.italic : FontStyle.normal,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.add_circle_outline),
-                                onPressed: () => _changeQuantity(idx, 1),
+                              Text(
+                                '₹${(o['price'] * o['quantity']).toStringAsFixed(2)}',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.remove_circle_outline),
+                                    onPressed: () => _changeQuantity(idx, -1),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.add_circle_outline),
+                                    onPressed: () => _changeQuantity(idx, 1),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                // The "Send Order to KOT" button should be active if there are any changes to send
+                if (
+                orders.any((item) =>
+                ((item['quantity'] as int) > (item['lastSentQuantity'] as int)) || // Pending additions
+                    ((item['voidPending'] as int? ?? 0) > 0) // Pending partial voids
+                ) || _pendingVoids.isNotEmpty // Check for pending full voids
+                )
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16.0),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context); // Close the bottom sheet
+                          _sendKOT();
+                        },
+                        icon: const Icon(Icons.send),
+                        label: const Text('Send KOT Update'), // General label
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF4CB050),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
                       ),
-                    );
-                  }),
+                    ),
+                  ),
+
+                // No need for the else if (orders.isEmpty) block here
+                // as the outer if (orders.isNotEmpty) for FAB already handles it.
               ],
             ),
           ),
@@ -230,6 +436,7 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
       ),
     );
   }
+
 
   List<Map<String, dynamic>> get _visibleProducts {
     if (searchQuery.isEmpty) {
@@ -254,10 +461,19 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          IconButton(
-            key: cartKey,
-            icon: Icon(Icons.shopping_cart_outlined),
-            onPressed: _showCartSheet,
+          ElevatedButton(
+            child: Text("Open KOT"),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => KotScreen(
+                    branchCode: branchCode,
+                    tableId: widget.tableId,
+                  ),
+                ),
+              );
+            },
           ),
         ],
         bottom: PreferredSize(

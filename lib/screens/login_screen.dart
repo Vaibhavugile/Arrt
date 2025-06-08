@@ -146,7 +146,9 @@ class _LoginScreenState extends State<LoginScreen> {
         data['role'] = 'subuser';
         Provider.of<UserProvider>(context, listen: false).setUserData(data);
         hiveBox.put(email, data);
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => SubuserDashboard()));
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => BranchDashboard()
+
+        ));
         return;
       }
 
