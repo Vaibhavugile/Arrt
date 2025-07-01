@@ -41,13 +41,13 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDWgT1Lr5utw2knTu10_eSbP7iejH7p9Qo',
-    appId: '1:165595597250:web:de76f62a373e4095acae5b',
-    messagingSenderId: '165595597250',
-    projectId: 'artha-71c7e',
-    authDomain: 'artha-71c7e.firebaseapp.com',
-    storageBucket: 'artha-71c7e.firebasestorage.app',
-    measurementId: 'G-DMF7T2E3BF',
+      apiKey: "AIzaSyBJeNKJI-tgCquHQ4gx5f4klogwBXgZe-4",
+      authDomain: "artha-71c7e.firebaseapp.com",
+      projectId: "artha-71c7e",
+      storageBucket: "artha-71c7e.firebasestorage.app",
+      messagingSenderId: "165595597250",
+      appId: "1:165595597250:web:e086669dd7985907acae5b",
+      measurementId: "G-R5XSJZ1FBJ"
   );
 
   static const FirebaseOptions android = FirebaseOptions(
