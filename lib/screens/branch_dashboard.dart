@@ -16,7 +16,7 @@ class BranchDashboard extends StatefulWidget {
 
 class _BranchDashboardState extends State<BranchDashboard> {
   bool isDarkMode = false;
-  int _selectedIndex = 0;
+  int _selectedIndex = 0; // To track the selected navigation item
 
   List<_DashboardItem> getDashboardItems(BuildContext context) {
     final S = AppLocalizations.of(context)!;
@@ -36,30 +36,36 @@ class _BranchDashboardState extends State<BranchDashboard> {
     final S = AppLocalizations.of(context)!;
     final dashboardItems = getDashboardItems(context);
 
-    final Color appBarGradientStart = Color(0xFFE0FFFF);
-    final Color appBarGradientMid = Color(0xFFBFEBFA);
-    final Color appBarGradientEnd = Color(0xFF87CEEB);
+    // Your Existing Theme Colors
+    final Color appBarGradientStart = Color(0xFFE0FFFF); // Muted light blue
+    final Color appBarGradientMid = Color(0xFFBFEBFA);   // Steel Blue
+    final Color appBarGradientEnd = Color(0xFF87CEEB);   // Dark Indigo (This is a good accent color)
 
-    final Color lightModeCardSolidColor = Color(0xFFCBEEEE);
-    final Color darkModeCardColor = Colors.grey[800]!;
-    final Color lightModeCardIconColor = Colors.black87;
-    final Color lightModeCardTextColor = Colors.black87;
-    final Color darkModeIconColor = Color(0xFF9AC0C6);
-    final Color darkModeTextColor = Colors.white70;
+    // Mobile/App-style Card Colors
+    final Color lightModeCardSolidColor = const Color(0xFFCBEEEE); // Peach Puff (for small screen cards)
+    final Color darkModeCardColor = Colors.grey[800]!; // Dark mode card background (for small screen cards)
+    final Color lightModeCardIconColor = Colors.black87; // Dark icons for contrast (for small screen cards)
+    final Color lightModeCardTextColor = Colors.black87; // Dark text for contrast (for small screen cards)
+    final Color darkModeIconColor = Color(0xFF9AC0C6); // Lighter blue for dark mode icons (for small screen cards)
+    final Color darkModeTextColor = Colors.white70; // Dark text for contrast (for small screen cards)
 
+    // Main content area background (still separate from sidebar for now, as it's the "body" background)
     final Color webContentBackgroundLight = Colors.white;
     final Color webContentBackgroundDark = Colors.grey[900]!;
 
-    final Color webSelectedNavItemColorLight = appBarGradientEnd;
-    final Color webSelectedNavItemBackgroundLight = appBarGradientStart.withOpacity(0.4);
-    final Color webSelectedNavItemColorDark = appBarGradientMid;
-    final Color webSelectedNavItemBackgroundDark = Colors.black.withOpacity(0.3);
+    // Adjusted Web Sidebar Navigation Item Colors to match app-like card theme
+    // For selected item, use appBarGradientMid as background for a highlight on the card
+    final Color webSelectedNavItemBackground = appBarGradientMid; // Steel Blue for selected background
+    final Color webSelectedNavItemContentColor = Colors.white; // White text/icon for selected item for contrast
 
-    final Color webUnselectedNavItemColorLight = Colors.grey[600]!;
-    final Color webUnselectedNavItemColorDark = Colors.grey[400]!;
+    // For unselected, use the existing card text/icon colors
+    final Color webUnselectedNavItemColorLight = lightModeCardTextColor;
+    final Color webUnselectedNavItemColorDark = darkModeTextColor;
 
+    // Sidebar branding/title text color (adjust to work with card background)
     final Color webSidebarTitleColorLight = Colors.black87;
     final Color webSidebarTitleColorDark = Colors.white;
+
 
     return Scaffold(
       backgroundColor: isDarkMode ? webContentBackgroundDark : webContentBackgroundLight,
@@ -70,9 +76,13 @@ class _BranchDashboardState extends State<BranchDashboard> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.language, color: Colors.white),
             onSelected: (value) {
-              if (value == 'en') MyApp.setLocale(context, Locale('en'));
-              else if (value == 'hi') MyApp.setLocale(context, Locale('hi'));
-              else if (value == 'mr') MyApp.setLocale(context, Locale('mr'));
+              if (value == 'en') {
+                MyApp.setLocale(context, const Locale('en'));
+              } else if (value == 'hi') {
+                MyApp.setLocale(context, const Locale('hi'));
+              } else if (value == 'mr') {
+                MyApp.setLocale(context, const Locale('mr'));
+              }
             },
             itemBuilder: (BuildContext context) => [
               PopupMenuItem(value: 'en', child: Text('English')),
@@ -81,24 +91,39 @@ class _BranchDashboardState extends State<BranchDashboard> {
             ],
           ),
           IconButton(
-            icon: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode, color: Colors.white),
-            onPressed: () => setState(() => isDarkMode = !isDarkMode),
-            tooltip: S.toggleTheme,
+            icon: const Icon(Icons.logout, color: Colors.white),
+            onPressed: () {
+              // TODO: Add logout logic
+            },
           ),
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () {},
+            icon: Icon(
+              isDarkMode ? Icons.light_mode : Icons.dark_mode,
+              color: Colors.white,
+            ),
+            onPressed: () {
+              setState(() {
+                isDarkMode = !isDarkMode;
+              });
+            },
+            tooltip: S.toggleTheme,
           ),
         ],
         flexibleSpace: isDarkMode
-            ? Container(color: Colors.grey[850])
+            ? Container(
+          color: Colors.grey[850],
+        )
             : Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [appBarGradientStart, appBarGradientMid, appBarGradientEnd],
-              stops: [0.0, 0.5, 1.0],
+              colors: [
+                appBarGradientStart,
+                appBarGradientMid,
+                appBarGradientEnd,
+              ],
+              stops: const [0.0, 0.5, 1.0],
             ),
           ),
         ),
@@ -112,95 +137,90 @@ class _BranchDashboardState extends State<BranchDashboard> {
               if (isLargeScreen)
                 Row(
                   children: [
-                    AnimatedContainer(
-                      duration: Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
+                    // --- Side Navigation for Large Screens (App-like Card Theme) ---
+                    Container(
                       width: 260,
                       decoration: BoxDecoration(
-                        color: isDarkMode ? Colors.grey[850] : Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
+                        color: isDarkMode ? darkModeCardColor : lightModeCardSolidColor, // Use card colors for sidebar background
+                        borderRadius: BorderRadius.circular(12), // Apply card border radius
+                        boxShadow: [ // Apply card shadows
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 10,
-                            offset: Offset(0, 4),
+                            color: Colors.black.withOpacity(isDarkMode ? 0.4 : 0.15),
+                            blurRadius: isDarkMode ? 8 : 10,
+                            offset: Offset(0, isDarkMode ? 4 : 6),
                           ),
                         ],
                       ),
+                      margin: const EdgeInsets.all(16.0), // Add margin to float like a card
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(24, 28, 16, 8),
+                            padding: const EdgeInsets.fromLTRB(24.0, 24.0, 16.0, 16.0),
                             child: Row(
                               children: [
-                                Icon(Icons.dashboard_customize, color: isDarkMode ? Colors.white70 : Colors.black87, size: 24),
+                                Icon(Icons.dashboard_customize, color: isDarkMode ? webSidebarTitleColorDark : webSidebarTitleColorLight, size: 24),
                                 SizedBox(width: 12),
                                 Text(
                                   S.branchDashboard,
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
-                                    color: isDarkMode ? Colors.white : Colors.black87,
+                                    color: isDarkMode ? webSidebarTitleColorDark : webSidebarTitleColorLight,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          Divider(color: isDarkMode ? Colors.white10 : Colors.grey[300], thickness: 1),
+                          // Divider might not be needed or can be adjusted if it doesn't fit the card aesthetic
+                          Divider(color: isDarkMode ? Colors.white10 : Colors.grey[300], thickness: 1, height: 1),
                           Expanded(
                             child: ListView.builder(
                               itemCount: dashboardItems.length,
                               itemBuilder: (context, index) {
                                 final item = dashboardItems[index];
                                 final isSelected = _selectedIndex == index;
-                                return Container(
-                                  margin: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 10.0),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? (isDarkMode ? webSelectedNavItemColorDark : webSelectedNavItemColorLight)
-                                          : (isDarkMode ? Colors.grey[700]! : Colors.grey[300]!),
-                                      width: isSelected ? 2 : 1,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12),
-                                    color: isSelected
-                                        ? (isDarkMode ? webSelectedNavItemBackgroundDark : webSelectedNavItemBackgroundLight)
-                                        : (isDarkMode ? Colors.grey[850] : Colors.grey[100]),
-                                  ),
-                                  child: Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(12),
-                                      onTap: () => setState(() => _selectedIndex = index),
-                                      splashColor: Colors.blue.withOpacity(0.1),
-                                      hoverColor: Colors.grey.withOpacity(0.05),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              item.icon,
-                                              size: 22,
+                                return Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedIndex = index;
+                                      });
+                                    },
+                                    hoverColor: isDarkMode
+                                        ? webSelectedNavItemBackground.withOpacity(0.5) // Using the new background for hover
+                                        : webSelectedNavItemBackground.withOpacity(0.2), // Lighter hover for light mode
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? webSelectedNavItemBackground // Solid background for selected
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), // Adjusted margin
+                                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            item.icon,
+                                            color: isSelected
+                                                ? webSelectedNavItemContentColor // White for selected content
+                                                : (isDarkMode ? webUnselectedNavItemColorDark : webUnselectedNavItemColorLight),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          Text(
+                                            item.title,
+                                            style: TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                               color: isSelected
-                                                  ? (isDarkMode ? webSelectedNavItemColorDark : webSelectedNavItemColorLight)
+                                                  ? webSelectedNavItemContentColor // White for selected content
                                                   : (isDarkMode ? webUnselectedNavItemColorDark : webUnselectedNavItemColorLight),
                                             ),
-                                            const SizedBox(width: 16),
-                                            Expanded(
-                                              child: Text(
-                                                item.title,
-                                                style: TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                                  color: isSelected
-                                                      ? (isDarkMode ? webSelectedNavItemColorDark : webSelectedNavItemColorLight)
-                                                      : (isDarkMode ? webUnselectedNavItemColorDark : webUnselectedNavItemColorLight),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
@@ -211,6 +231,7 @@ class _BranchDashboardState extends State<BranchDashboard> {
                         ],
                       ),
                     ),
+                    // --- Main Content Area ---
                     Expanded(
                       child: Container(
                         color: isDarkMode ? webContentBackgroundDark : webContentBackgroundLight,
@@ -222,7 +243,7 @@ class _BranchDashboardState extends State<BranchDashboard> {
                     ),
                   ],
                 )
-              else
+              else // Small Screen layout (retaining the original card grid)
                 Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: GridView.count(
@@ -244,7 +265,7 @@ class _BranchDashboardState extends State<BranchDashboard> {
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.4),
                                 blurRadius: 8,
-                                offset: Offset(0, 4),
+                                offset: const Offset(0, 4),
                               ),
                             ],
                           )
@@ -255,7 +276,7 @@ class _BranchDashboardState extends State<BranchDashboard> {
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.15),
                                 blurRadius: 10,
-                                offset: Offset(0, 6),
+                                offset: const Offset(0, 6),
                               ),
                             ],
                           ),
@@ -264,7 +285,11 @@ class _BranchDashboardState extends State<BranchDashboard> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Icon(item.icon, size: 40, color: isDarkMode ? darkModeIconColor : lightModeCardIconColor),
+                              Icon(
+                                item.icon,
+                                size: 40,
+                                color: isDarkMode ? darkModeIconColor : lightModeCardIconColor,
+                              ),
                               const SizedBox(height: 12),
                               Text(
                                 item.title,
@@ -282,14 +307,22 @@ class _BranchDashboardState extends State<BranchDashboard> {
                     }).toList(),
                   ),
                 ),
+              // Floating Action Button - only shown on small screens
               if (!isLargeScreen)
                 Positioned(
                   bottom: 16,
                   right: 16,
                   child: FloatingActionButton(
                     backgroundColor: isDarkMode ? appBarGradientEnd : appBarGradientMid,
-                    onPressed: () => setState(() => isDarkMode = !isDarkMode),
-                    child: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode, color: Colors.white),
+                    onPressed: () {
+                      setState(() {
+                        isDarkMode = !isDarkMode;
+                      });
+                    },
+                    child: Icon(
+                      isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                      color: Colors.white,
+                    ),
                     tooltip: S.toggleTheme,
                   ),
                 ),

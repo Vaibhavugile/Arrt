@@ -26,18 +26,29 @@ class _InventoryScreenState extends State<InventoryScreen> {
   List<Map<String, dynamic>> inventoryItems = [];
   Map<String, List<Map<String, dynamic>>> inventoryHistory = {};
   String? selectedItemId;
+  bool isDarkMode = false; // Added for theme toggle
+  int _selectedSidebarIndex = 0; // To track selected sidebar item
+
+  // Define actions for sidebar/speed dial
+  List<_InventoryActionItem> getInventoryActions(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+    return [
+      _InventoryActionItem(loc.addInventory, Icons.add, () {
+        Navigator.push(
+            context, MaterialPageRoute(builder: (_) => AddInventoryScreen()));
+      }),
+      _InventoryActionItem(loc.addStock, Icons.inventory, () {
+        Navigator.push(
+            context, MaterialPageRoute(builder: (_) => AddStockScreen()));
+      }),
+      _InventoryActionItem(loc.exportToPdf, Icons.download, exportToPDF),
+    ];
+  }
 
   @override
   void initState() {
     super.initState();
-    // Firestore fetch does not depend on localization
     fetchInventory();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // No localization here either; all loc calls happen in build() or delegates
   }
 
   Future<void> fetchInventory() async {
@@ -142,7 +153,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
 
     final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/inventory_report_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    final file = File(
+        '${dir.path}/inventory_report_${DateTime.now().millisecondsSinceEpoch}.pdf');
     await file.writeAsBytes(await pdf.save());
 
     final result = await OpenFile.open(file.path);
@@ -155,15 +167,60 @@ class _InventoryScreenState extends State<InventoryScreen> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
+    final inventoryActions = getInventoryActions(context);
+
+    // Theme Colors (consistent with branch_dashboard for web styling)
+    final Color appBarGradientStart = Color(0xFFE0FFFF); // Muted light blue
+    final Color appBarGradientMid = Color(0xFFBFEBFA); // Steel Blue
+    final Color appBarGradientEnd = Color(0xFF87CEEB); // Dark Indigo
+
+    final Color lightModeCardSolidColor =
+    Colors.grey[100]!; // Peach Puff (for small screen cards)
+    final Color darkModeCardColor =
+    Colors.grey[800]!; // Dark mode card background (for small screen cards)
+    final Color lightModeCardIconColor =
+        Colors.black87; // Dark icons for contrast (for small screen cards)
+    final Color lightModeCardTextColor =
+        Colors.black87; // Dark text for contrast (for small screen cards)
+    final Color darkModeIconColor =
+    Color(0xFF9AC0C6); // Lighter blue for dark mode icons (for small screen cards)
+    final Color darkModeTextColor =
+        Colors.white70; // Dark text for contrast (for small screen cards)
+
+    final Color webContentBackgroundLight = Colors.white;
+    final Color webContentBackgroundDark = Colors.grey[900]!;
+
+    final Color webSelectedNavItemBackground = appBarGradientMid;
+    final Color webSelectedNavItemContentColor = Colors.white;
+
+    final Color webUnselectedNavItemColorLight = lightModeCardTextColor;
+    final Color webUnselectedNavItemColorDark = darkModeTextColor;
+
+    final Color webSidebarTitleColorLight = Colors.black87;
+    final Color webSidebarTitleColorDark = Colors.white;
 
     return Animate(
       effects: [FadeEffect(duration: 500.ms), MoveEffect(begin: Offset(0, 40))],
       child: Scaffold(
+        backgroundColor:
+        isDarkMode ? webContentBackgroundDark : webContentBackgroundLight,
         appBar: AppBar(
-          backgroundColor: Color(0xFF4CB050),
-          title: Text(loc.inventoryTitle, style: TextStyle(color: Colors.white)),
-          iconTheme: IconThemeData(color: Colors.white),
+          title: Text(loc.inventoryTitle,
+              style: const TextStyle(color: Colors.black87)),
+          iconTheme: const IconThemeData(color: Colors.white),
           actions: [
+            IconButton(
+              icon: Icon(
+                isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                color: Colors.white,
+              ),
+              onPressed: () {
+                setState(() {
+                  isDarkMode = !isDarkMode;
+                });
+              },
+              tooltip: loc.toggleTheme,
+            ),
             IconButton(
               icon: Icon(Icons.search),
               onPressed: () async {
@@ -177,154 +234,432 @@ class _InventoryScreenState extends State<InventoryScreen> {
               },
             )
           ],
+          flexibleSpace: isDarkMode
+              ? Container(
+            color: Colors.grey[850],
+          )
+              : Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  appBarGradientStart,
+                  appBarGradientMid,
+                  appBarGradientEnd,
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ),
+            ),
+          ),
         ),
-        floatingActionButton: SpeedDial(
-          animatedIcon: AnimatedIcons.menu_close,
-          backgroundColor: Color(0xFF4CB050),
-          children: [
-            SpeedDialChild(
-              child: Icon(Icons.add),
-              label: loc.addInventory,
-              onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => AddInventoryScreen())),
-            ),
-            SpeedDialChild(
-              child: Icon(Icons.inventory),
-              label: loc.addStock,
-              onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => AddStockScreen())),
-            ),
-            SpeedDialChild(
-              child: Icon(Icons.download),
-              label: loc.exportToPdf,
-              onTap: exportToPDF,
-            ),
-          ],
+        floatingActionButton: LayoutBuilder(
+          builder: (context, constraints) {
+            bool isLargeScreen = constraints.maxWidth > 700;
+            if (isLargeScreen) {
+              return Container(); // Hide FAB on large screens
+            } else {
+              return SpeedDial(
+                animatedIcon: AnimatedIcons.menu_close,
+                backgroundColor: isDarkMode ? appBarGradientEnd : appBarGradientMid,
+                children: [
+                  SpeedDialChild(
+                    child: Icon(Icons.add),
+                    label: loc.addInventory,
+                    onTap: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => AddInventoryScreen())),
+                  ),
+                  SpeedDialChild(
+                    child: Icon(Icons.inventory),
+                    label: loc.addStock,
+                    onTap: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => AddStockScreen())),
+                  ),
+                  SpeedDialChild(
+                    child: Icon(Icons.download),
+                    label: loc.exportToPdf,
+                    onTap: exportToPDF,
+                  ),
+                ],
+              );
+            }
+          },
         ),
-        body: loading
-            ? Center(child: CircularProgressIndicator())
-            : inventoryItems.isEmpty
-            ? Center(child: Text(loc.noInventoryFound))
-            : ListView.builder(
-          padding: EdgeInsets.all(12),
-          itemCount: inventoryItems.length,
-          itemBuilder: (context, i) {
-            final item = inventoryItems[i];
-            final isSelected = selectedItemId == item['id'];
-            return Card(
-              elevation: 3,
-              margin: EdgeInsets.only(bottom: 16),
-              child: Padding(
-                padding: EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(item['ingredientName'] ?? '',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text(
-                          '${loc.category}: ${item['category'] ?? ''}'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: Icon(Icons.edit),
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => EditInventoryScreen(
-                                    documentId: item['id'], data: item),
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.delete),
-                            onPressed: () => deleteItem(item['id']),
-                          ),
-                        ],
-                      ),
-                      onTap: () =>
-                          setState(() => selectedItemId = isSelected ? null : item['id']),
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            bool isLargeScreen = constraints.maxWidth > 700;
+
+            return Row(
+              children: [
+                if (isLargeScreen)
+                  Container(
+                    width: 260,
+                    decoration: BoxDecoration(
+                      color: isDarkMode ? darkModeCardColor : lightModeCardSolidColor,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(isDarkMode ? 0.4 : 0.15),
+                          blurRadius: isDarkMode ? 8 : 10,
+                          offset: Offset(0, isDarkMode ? 4 : 6),
+                        ),
+                      ],
                     ),
-                    Text('${loc.lastUpdated}: ${formatDate(item['lastUpdated'])}'),
-                    Text('${loc.quantity1}: ${item['quantity']} ${item['unit']}'),
-                    if (isSelected && inventoryHistory[item['id']] != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: Column(
-                          crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                          children: [
-                            Divider(),
-                            Text(loc.historyTitle,
+                    margin: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24.0, 24.0, 16.0, 16.0),
+                          child: Row(
+                            children: [
+                              Icon(Icons.category,
+                                  color: isDarkMode
+                                      ? webSidebarTitleColorDark
+                                      : webSidebarTitleColorLight,
+                                  size: 24),
+                              SizedBox(width: 12),
+                              Text(
+                                loc.inventoryTitle,
                                 style: TextStyle(
-                                    fontWeight: FontWeight.bold)),
-                            ...inventoryHistory[item['id']]!
-                                .map((h) {
-                              final updatedAt =
-                              (h['updatedAt'] as Timestamp)
-                                  .toDate();
-                              return Card(
-                                elevation: 2,
-                                margin:
-                                EdgeInsets.only(bottom: 8),
-                                child: Padding(
-                                  padding:
-                                  const EdgeInsets.all(8.0),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Icon(Icons.history,
-                                              color: Colors.blue,
-                                              size: 20),
-                                          SizedBox(width: 8),
-                                          Text(
-                                            DateFormat(
-                                                'dd/MM/yyyy hh:mm a')
-                                                .format(updatedAt),
-                                            style: TextStyle(
-                                                fontWeight:
-                                                FontWeight.bold),
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDarkMode
+                                      ? webSidebarTitleColorDark
+                                      : webSidebarTitleColorLight,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Divider(
+                            color: isDarkMode ? Colors.white10 : Colors.grey[300],
+                            thickness: 1,
+                            height: 1),
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: inventoryActions.length,
+                            itemBuilder: (context, index) {
+                              final item = inventoryActions[index];
+                              final isSelected = _selectedSidebarIndex == index;
+                              return Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedSidebarIndex = index;
+                                    });
+                                    item.onTap();
+                                  },
+                                  hoverColor: isDarkMode
+                                      ? webSelectedNavItemBackground.withOpacity(0.5)
+                                      : webSelectedNavItemBackground.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? webSelectedNavItemBackground
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    margin: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 14, horizontal: 16),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          item.icon,
+                                          color: isSelected
+                                              ? webSelectedNavItemContentColor
+                                              : (isDarkMode
+                                              ? webUnselectedNavItemColorDark
+                                              : webUnselectedNavItemColorLight),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Text(
+                                          item.title,
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: isSelected
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                            color: isSelected
+                                                ? webSelectedNavItemContentColor
+                                                : (isDarkMode
+                                                ? webUnselectedNavItemColorDark
+                                                : webUnselectedNavItemColorLight),
                                           ),
-                                        ],
-                                      ),
-                                      SizedBox(height: 4),
-                                      Text(
-                                        '${loc.actionLabel}: ${h['action']}',
-                                        style: TextStyle(
-                                            fontSize: 14,
-                                            fontStyle: FontStyle
-                                                .italic),
-                                      ),
-                                      SizedBox(height: 4),
-                                      Text(
-                                        '${loc.quantityAddedLabel}: ${h['quantityAdded']} @ ₹${h['price']} — ${loc.currentQuantityLabel}: ${h['updatedQuantity']}',
-                                        style:
-                                        TextStyle(fontSize: 14),
-                                      ),
-                                    ],
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               );
-                            }).toList(),
-                          ],
+                            },
+                          ),
                         ),
-                      )
-                  ],
+                      ],
+                    ),
+                  ),
+                Expanded(
+                  child: Container(
+                    color: isDarkMode
+                        ? webContentBackgroundDark
+                        : webContentBackgroundLight,
+                    child: loading
+                        ? Center(child: CircularProgressIndicator())
+                        : inventoryItems.isEmpty
+                        ? Center(child: Text(loc.noInventoryFound))
+                        : Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: isLargeScreen
+                          ? _buildInventoryList(loc, isDarkMode,
+                          lightModeCardSolidColor, darkModeCardColor, darkModeIconColor, lightModeCardIconColor, darkModeTextColor, lightModeCardTextColor)
+                          : GridView.count(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        children: inventoryItems.map((item) {
+                          return GestureDetector(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => InventoryDetailScreen(
+                                    item: item,
+                                    inventoryHistory: inventoryHistory[item['id']] ?? [],
+                                    isDarkMode: isDarkMode,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              decoration: isDarkMode
+                                  ? BoxDecoration(
+                                color: darkModeCardColor,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.4),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              )
+                                  : BoxDecoration(
+                                color: lightModeCardSolidColor,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.15),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                mainAxisAlignment:
+                                MainAxisAlignment.center,
+                                crossAxisAlignment:
+                                CrossAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.category, // Using a generic icon for demonstration
+                                    size: 40,
+                                    color: isDarkMode
+                                        ? darkModeIconColor
+                                        : lightModeCardIconColor,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    item['ingredientName'] ?? '',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDarkMode
+                                          ? darkModeTextColor
+                                          : lightModeCardTextColor,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${item['quantity']} ${item['unit']}',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: isDarkMode
+                                          ? darkModeTextColor
+                                          : lightModeCardTextColor,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             );
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildInventoryList(
+      AppLocalizations loc,
+      bool isDarkMode,
+      Color lightModeCardSolidColor,
+      Color darkModeCardColor,
+      Color darkModeIconColor,
+      Color lightModeCardIconColor,
+      Color darkModeTextColor,
+      Color lightModeCardTextColor) {
+    return ListView.builder(
+      padding: EdgeInsets.all(12),
+      itemCount: inventoryItems.length,
+      itemBuilder: (context, i) {
+        final item = inventoryItems[i];
+        final isSelected = selectedItemId == item['id'];
+        return Card(
+          elevation: 3,
+          margin: EdgeInsets.only(bottom: 16),
+          color: isDarkMode ? darkModeCardColor : lightModeCardSolidColor,
+          child: Padding(
+            padding: EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(item['ingredientName'] ?? '',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode
+                              ? darkModeTextColor
+                              : lightModeCardTextColor)),
+                  subtitle: Text(
+                      '${loc.category}: ${item['category'] ?? ''}',
+                      style: TextStyle(
+                          color: isDarkMode
+                              ? darkModeTextColor
+                              : lightModeCardTextColor)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.edit,
+                            color: isDarkMode
+                                ? darkModeIconColor
+                                : lightModeCardIconColor),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                EditInventoryScreen(documentId: item['id'], data: item),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete,
+                            color: isDarkMode
+                                ? darkModeIconColor
+                                : lightModeCardIconColor),
+                        onPressed: () => deleteItem(item['id']),
+                      ),
+                    ],
+                  ),
+                  onTap: () => setState(
+                          () => selectedItemId = isSelected ? null : item['id']),
+                ),
+                Text('${loc.lastUpdated}: ${formatDate(item['lastUpdated'])}',
+                    style: TextStyle(
+                        color: isDarkMode
+                            ? darkModeTextColor
+                            : lightModeCardTextColor)),
+                Text('${loc.quantity1}: ${item['quantity']} ${item['unit']}',
+                    style: TextStyle(
+                        color: isDarkMode
+                            ? darkModeTextColor
+                            : lightModeCardTextColor)),
+                if (isSelected && inventoryHistory[item['id']] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Divider(color: isDarkMode ? Colors.white30 : Colors.grey[400]),
+                        Text(loc.historyTitle,
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: isDarkMode
+                                    ? darkModeTextColor
+                                    : lightModeCardTextColor)),
+                        ...inventoryHistory[item['id']]!.map((h) {
+                          final updatedAt = (h['updatedAt'] as Timestamp).toDate();
+                          return Card(
+                            elevation: 2,
+                            margin: EdgeInsets.only(bottom: 8),
+                            color: isDarkMode ? Colors.grey[700] : Colors.grey[200],
+                            child: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.history,
+                                          color: isDarkMode ? darkModeIconColor : Colors.blue,
+                                          size: 20),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        DateFormat('dd/MM/yyyy hh:mm a')
+                                            .format(updatedAt),
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: isDarkMode
+                                                ? darkModeTextColor
+                                                : lightModeCardTextColor),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    '${loc.actionLabel}: ${h['action']}',
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        fontStyle: FontStyle.italic,
+                                        color: isDarkMode
+                                            ? darkModeTextColor
+                                            : lightModeCardTextColor),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    '${loc.quantityAddedLabel}: ${h['quantityAdded']} @ ₹${h['price']} — ${loc.currentQuantityLabel}: ${h['updatedQuantity']}',
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        color: isDarkMode
+                                            ? darkModeTextColor
+                                            : lightModeCardTextColor),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ],
+                    ),
+                  )
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -337,13 +672,12 @@ class InventorySearchDelegate extends SearchDelegate<String?> {
   String get searchFieldLabel => loc.searchInventory;
 
   @override
-  List<Widget>? buildActions(BuildContext context) => [
-    IconButton(icon: Icon(Icons.clear), onPressed: () => query = '')
-  ];
+  List<Widget>? buildActions(BuildContext context) =>
+      [IconButton(icon: Icon(Icons.clear), onPressed: () => query = '')];
 
   @override
-  Widget? buildLeading(BuildContext context) =>
-      IconButton(icon: Icon(Icons.arrow_back), onPressed: () => close(context, null));
+  Widget? buildLeading(BuildContext context) => IconButton(
+      icon: Icon(Icons.arrow_back), onPressed: () => close(context, null));
 
   @override
   Widget buildResults(BuildContext context) {
@@ -364,7 +698,8 @@ class InventorySearchDelegate extends SearchDelegate<String?> {
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting)
           return Center(child: CircularProgressIndicator());
-        if (snap.data?.docs.isEmpty ?? true) return Center(child: Text(loc.noResults));
+        if (snap.data?.docs.isEmpty ?? true)
+          return Center(child: Text(loc.noResults));
 
         return ListView(
           children: snap.data!.docs.map((doc) {
@@ -438,6 +773,184 @@ class InventorySearchDelegate extends SearchDelegate<String?> {
           },
         );
       },
+    );
+  }
+}
+
+class _InventoryActionItem {
+  final String title;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  _InventoryActionItem(this.title, this.icon, this.onTap);
+}
+
+// New screen for displaying full inventory item details
+class InventoryDetailScreen extends StatelessWidget {
+  final Map<String, dynamic> item;
+  final List<Map<String, dynamic>> inventoryHistory;
+  final bool isDarkMode;
+
+  InventoryDetailScreen({
+    required this.item,
+    required this.inventoryHistory,
+    required this.isDarkMode,
+  });
+
+  String formatDate(dynamic timestamp) {
+    if (timestamp is Timestamp) {
+      return DateFormat('dd/MM/yyyy hh:mm a').format(timestamp.toDate());
+    }
+    return '';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context)!;
+
+    // Re-use theme colors for consistency
+    final Color darkModeTextColor = Colors.white70;
+    final Color lightModeCardTextColor = Colors.black87;
+    final Color darkModeIconColor = Color(0xFF9AC0C6);
+    final Color lightModeCardIconColor = Colors.black87;
+    final Color darkModeCardColor = Colors.grey[800]!;
+    final Color lightModeCardSolidColor = const Color(0xFFCBEEEE);
+
+    return Scaffold(
+      backgroundColor: isDarkMode ? Colors.grey[900] : Colors.white,
+      appBar: AppBar(
+        title: Text(item['ingredientName'] ?? loc.itemDetails,
+            style: const TextStyle(color: Colors.white)),
+        iconTheme: const IconThemeData(color: Colors.white),
+        backgroundColor: isDarkMode ? Colors.grey[850] : Color(0xFF87CEEB), // Consistent with InventoryScreen AppBar
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Card(
+              elevation: 4,
+              color: isDarkMode ? darkModeCardColor : lightModeCardSolidColor,
+              margin: EdgeInsets.zero,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.inventory_2,
+                          size: 40,
+                          color: isDarkMode ? darkModeIconColor : lightModeCardIconColor),
+                      title: Text(
+                        item['ingredientName'] ?? '',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: isDarkMode ? darkModeTextColor : lightModeCardTextColor,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${loc.category}: ${item['category'] ?? ''}',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: isDarkMode ? darkModeTextColor : lightModeCardTextColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      '${loc.quantity1}: ${item['quantity']} ${item['unit']}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: isDarkMode ? darkModeTextColor : lightModeCardTextColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${loc.lastUpdated}: ${formatDate(item['lastUpdated'])}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontStyle: FontStyle.italic,
+                        color: isDarkMode ? darkModeTextColor : lightModeCardTextColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              loc.historyTitle,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (inventoryHistory.isEmpty)
+              Center(
+                child: Text(loc.noHistoryFound,
+                    style: TextStyle(
+                        color: isDarkMode ? darkModeTextColor : lightModeCardTextColor)),
+              )
+            else
+              ...inventoryHistory.map((h) {
+                final updatedAt = (h['updatedAt'] as Timestamp).toDate();
+                return Card(
+                  elevation: 2,
+                  margin: EdgeInsets.only(bottom: 10),
+                  color: isDarkMode ? Colors.grey[700] : Colors.grey[200],
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.access_time,
+                                size: 18,
+                                color: isDarkMode ? darkModeIconColor : Colors.blue),
+                            SizedBox(width: 8),
+                            Text(
+                              DateFormat('dd/MM/yyyy hh:mm a').format(updatedAt),
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: isDarkMode
+                                      ? darkModeTextColor
+                                      : lightModeCardTextColor),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 6),
+                        Text(
+                          '${loc.actionLabel}: ${h['action']}',
+                          style: TextStyle(
+                              fontSize: 15,
+                              fontStyle: FontStyle.italic,
+                              color: isDarkMode
+                                  ? darkModeTextColor
+                                  : lightModeCardTextColor),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          '${loc.quantityAddedLabel}: ${h['quantityAdded']} @ ₹${h['price']} — ${loc.currentQuantityLabel}: ${h['updatedQuantity']}',
+                          style: TextStyle(
+                              fontSize: 15,
+                              color: isDarkMode
+                                  ? darkModeTextColor
+                                  : lightModeCardTextColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+          ],
+        ),
+      ),
     );
   }
 }

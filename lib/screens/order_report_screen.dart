@@ -8,8 +8,8 @@ import 'package:provider/provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:open_file/open_file.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // Import the generated file
-import 'package:art/providers/user_provider.dart'; // 👈 adjust the path
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:art/providers/user_provider.dart';
 
 
 class OrderReportScreen extends StatefulWidget {
@@ -25,7 +25,30 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
   String searchTerm = '';
   bool isLoading = true;
   late String branchCode;
-  late AppLocalizations? _localization; // Add this line
+  late AppLocalizations? _localization;
+  bool isDarkMode = false; // Added for theme toggle
+
+  // Theme Colors (consistent with inventory_screen for web styling)
+  final Color appBarGradientStart = Color(0xFFE0FFFF); // Muted light blue
+  final Color appBarGradientMid = Color(0xFFBFEBFA); // Steel Blue
+  final Color appBarGradientEnd = Color(0xFF87CEEB); // Dark Indigo
+
+  final Color lightModeCardSolidColor =
+  const Color(0xFFCBEEEE); // Peach Puff (for small screen cards)
+  final Color darkModeCardColor =
+  Colors.grey[800]!; // Dark mode card background (for small screen cards)
+  final Color lightModeCardIconColor =
+      Colors.black87; // Dark icons for contrast (for small screen cards)
+  final Color lightModeCardTextColor =
+      Colors.black87; // Dark text for contrast (for small screen cards)
+  final Color darkModeIconColor =
+  Color(0xFF9AC0C6); // Lighter blue for dark mode icons (for small screen cards)
+  final Color darkModeTextColor =
+      Colors.white70; // Dark text for contrast (for small screen cards)
+
+  final Color webContentBackgroundLight = Colors.white;
+  final Color webContentBackgroundDark = Colors.grey[900]!;
+
 
   @override
   void initState() {
@@ -34,7 +57,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       setState(() {
         branchCode = userProvider.branchCode!;
-        _localization = AppLocalizations.of(context); // Initialize here
+        _localization = AppLocalizations.of(context);
       });
       fetchOrderHistory();
     });
@@ -78,9 +101,9 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       });
     } catch (e) {
       print("Error fetching order history: $e");
-      if (mounted) { // Check if the widget is still in the tree
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error fetching data: $e')), // Show error to user
+          SnackBar(content: Text('Error fetching data: $e')),
         );
       }
     }
@@ -198,6 +221,28 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
       initialDate: isFrom ? (fromDate ?? DateTime.now()) : (toDate ?? DateTime.now()),
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: isDarkMode ? ThemeData.dark().copyWith(
+            colorScheme: ColorScheme.dark(
+              primary: appBarGradientEnd, // Your primary color for dark mode pickers
+              onPrimary: Colors.white,
+              surface: darkModeCardColor,
+              onSurface: darkModeTextColor,
+            ),
+            dialogBackgroundColor: darkModeCardColor,
+          ) : ThemeData.light().copyWith(
+            colorScheme: ColorScheme.light(
+              primary: appBarGradientEnd, // Your primary color for light mode pickers
+              onPrimary: Colors.white,
+              surface: lightModeCardSolidColor,
+              onSurface: lightModeCardTextColor,
+            ),
+            dialogBackgroundColor: lightModeCardSolidColor,
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) {
       setState(() {
@@ -222,16 +267,14 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Initialize _localization here as well, to ensure it's always available.
     _localization = AppLocalizations.of(context);
     if (_localization == null) {
-      // Handle the case where _localization is null, although it should not happen.
-      return const Center(child: Text("Localization not loaded!")); // Or a loading indicator.
+      return const Center(child: Text("Localization not loaded!"));
     }
 
     final groupedData = Map.fromEntries(
       groupByDate(filteredHistory).entries.toList()
-        ..sort((a, b) => b.key.compareTo(a.key)) // Recent dates first
+        ..sort((a, b) => b.key.compareTo(a.key))
         ..forEach((entry) {
           entry.value.sort((a, b) {
             DateTime aDate;
@@ -256,7 +299,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
               bDate = DateTime(2000);
             }
 
-            return bDate.compareTo(aDate); // Recent orders first
+            return bDate.compareTo(aDate);
           });
         }),
     );
@@ -264,26 +307,58 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
     return Animate(
       effects: [FadeEffect(duration: 600.ms), MoveEffect(begin: Offset(0, 30))],
       child: Scaffold(
+        backgroundColor: isDarkMode ? webContentBackgroundDark : webContentBackgroundLight,
         appBar: AppBar(
           title: Text(
             _localization?.orderReport ?? 'Order Report',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: isDarkMode ? Colors.white : Colors.black87),
           ),
-          backgroundColor: const Color(0xFF4CB050),
-          iconTheme: const IconThemeData(color: Colors.white),
+          iconTheme: IconThemeData(color: isDarkMode ? Colors.white : Colors.black87),
           actions: [
             IconButton(
+              icon: Icon(
+                isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
+              onPressed: () {
+                setState(() {
+                  isDarkMode = !isDarkMode;
+                });
+              },
+              tooltip: _localization?.toggleTheme,
+            ),
+            IconButton(
                 icon: const Icon(Icons.download),
+                color: isDarkMode ? Colors.white : Colors.black87,
                 onPressed: () => exportOrderPDF(context, filteredHistory)),
           ],
+          flexibleSpace: isDarkMode
+              ? Container(
+            color: Colors.grey[850],
+          )
+              : Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  appBarGradientStart,
+                  appBarGradientMid,
+                  appBarGradientEnd,
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ),
+            ),
+          ),
         ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: clearFilters,
-          icon: const Icon(Icons.clear),
-          label: Text(_localization?.clearFilters ?? "Clear Filters"),
+          icon: Icon(Icons.clear, color: isDarkMode ? Colors.white : Colors.black87),
+          label: Text(_localization?.clearFilters ?? "Clear Filters", style: TextStyle(color: isDarkMode ? Colors.white : Colors.black87)),
+          backgroundColor: isDarkMode ? appBarGradientEnd : appBarGradientMid,
         ),
         body: isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(appBarGradientEnd)))
             : Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -291,7 +366,11 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
               Row(children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    icon: const Icon(Icons.date_range),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDarkMode ? darkModeTextColor : lightModeCardTextColor,
+                      side: BorderSide(color: isDarkMode ? darkModeIconColor : Colors.grey.shade400),
+                    ),
+                    icon: Icon(Icons.date_range, color: isDarkMode ? darkModeIconColor : lightModeCardIconColor),
                     label: Text(fromDate == null
                         ? _localization?.fromDate ?? 'From Date'
                         : DateFormat('yyyy-MM-dd').format(fromDate!)),
@@ -301,7 +380,11 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: OutlinedButton.icon(
-                    icon: const Icon(Icons.date_range),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDarkMode ? darkModeTextColor : lightModeCardTextColor,
+                      side: BorderSide(color: isDarkMode ? darkModeIconColor : Colors.grey.shade400),
+                    ),
+                    icon: Icon(Icons.date_range, color: isDarkMode ? darkModeIconColor : lightModeCardIconColor),
                     label: Text(toDate == null
                         ? _localization?.toDate ?? 'To Date'
                         : DateFormat('yyyy-MM-dd').format(toDate!)),
@@ -312,10 +395,18 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
               const SizedBox(height: 10),
               TextField(
                 decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search),
+                  prefixIcon: Icon(Icons.search, color: isDarkMode ? darkModeIconColor : lightModeCardIconColor),
                   labelText: _localization?.search ?? 'Search by item/responsible',
+                  labelStyle: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeCardTextColor),
                   border: const OutlineInputBorder(),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: isDarkMode ? darkModeIconColor : Colors.grey.shade400),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: isDarkMode ? appBarGradientEnd : appBarGradientMid),
+                  ),
                 ),
+                style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeCardTextColor),
                 onChanged: (val) {
                   searchTerm = val;
                   filterData();
@@ -341,14 +432,14 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                           children: [
                             Text(
                               DateFormat('EEEE, MMM d, y').format(DateTime.parse(dateKey)),
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white : Colors.black87),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               'Subtotal: ₹${dayTotal.toStringAsFixed(2)}',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.green[700],
+                                color: isDarkMode ? Colors.green[400] : Colors.green[700],
                                 fontSize: 16,
                               ),
                             ),
@@ -367,6 +458,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                             elevation: 3,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             margin: const EdgeInsets.symmetric(vertical: 8),
+                            color: isDarkMode ? darkModeCardColor : lightModeCardSolidColor,
                             child: Padding(
                               padding: const EdgeInsets.all(12),
                               child: Column(
@@ -374,7 +466,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                 children: [
                                   Text(
                                     entry['name'],
-                                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: isDarkMode ? darkModeTextColor : lightModeCardTextColor),
                                   ),
                                   const SizedBox(height: 4),
                                   Row(
@@ -386,9 +478,11 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                           entry['quantity'].toString(),
                                           entry['price'].toStringAsFixed(2),
                                         ),
+                                        style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeCardTextColor),
                                       ),
                                       Text(
                                         '${AppLocalizations.of(context)!.total}: ₹${(entry['price'] * entry['quantity']).toStringAsFixed(2)}',
+                                        style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeCardTextColor),
                                       ),
                                     ],
                                   ),
@@ -398,11 +492,11 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                                     children: [
                                       Text(
                                         '${AppLocalizations.of(context)!.by}: ${entry['responsible']}',
-                                        style: TextStyle(color: Colors.grey.shade700),
+                                        style: TextStyle(color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700),
                                       ),
                                       Text(
                                         DateFormat('hh:mm a').format(time),
-                                        style: TextStyle(color: Colors.grey.shade600),
+                                        style: TextStyle(color: isDarkMode ? Colors.grey.shade500 : Colors.grey.shade600),
                                       ),
                                     ],
                                   ),
@@ -412,7 +506,7 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
                           );
                         }).toList(),
 
-                        const Divider(),
+                        Divider(color: isDarkMode ? Colors.white30 : Colors.grey[300]),
                       ],
                     );
                   },
@@ -425,4 +519,3 @@ class _OrderReportScreenState extends State<OrderReportScreen> {
     );
   }
 }
-

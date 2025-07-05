@@ -39,6 +39,25 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
 
   Map<String, List<Map<String, dynamic>>> groupedData = {};
 
+  bool isDarkMode = false; // Added for theme toggle
+
+  // Theme Colors (consistent with inventory_screen for web styling)
+  final Color appBarGradientStart = Color(0xFFE0FFFF); // Muted light blue
+  final Color appBarGradientMid = Color(0xFFBFEBFA); // Steel Blue
+  final Color appBarGradientEnd = Color(0xFF87CEEB); // Dark Indigo
+
+  // Refined card and text colors for better "simple standard" look
+  final Color lightModeCardBackground = Colors.white; // Changed from lightModeCardSolidColor
+  final Color darkModeCardBackground = Colors.grey[800]!; // Dark mode card background
+  final Color lightModeTextColor = Colors.black87; // Primary text color for light mode
+  final Color darkModeTextColor = Colors.white70; // Primary text color for dark mode
+  final Color lightModeIconColor = Colors.black87; // Icon color for light mode
+  final Color darkModeIconColor = Color(0xFF9AC0C6); // Icon color for dark mode
+
+  final Color webContentBackgroundLight = Colors.white;
+  final Color webContentBackgroundDark = Colors.grey[900]!;
+
+
   @override
   void initState() {
     super.initState();
@@ -216,16 +235,19 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
     showModalBottomSheet(
       context: context,
       builder: (context) {
-        return ListView.builder(
-          padding: EdgeInsets.all(16),
-          itemCount: orders.length,
-          itemBuilder: (context, index) {
-            final order = orders[index];
-            return ListTile(
-              title: Text('${order['quantity']} x ${order['name']}'),
-              trailing: Text('₹${(order['price'] * order['quantity']).toStringAsFixed(2)}'),
-            );
-          },
+        return Container(
+          color: isDarkMode ? webContentBackgroundDark : webContentBackgroundLight,
+          child: ListView.builder(
+            padding: EdgeInsets.all(16),
+            itemCount: orders.length,
+            itemBuilder: (context, index) {
+              final order = orders[index];
+              return ListTile(
+                title: Text('${order['quantity']} x ${order['name']}', style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
+                trailing: Text('₹${(order['price'] * order['quantity']).toStringAsFixed(2)}', style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
+              );
+            },
+          ),
         );
       },
     );
@@ -241,12 +263,13 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text(S.choosePaymentMethod),
+          backgroundColor: isDarkMode ? darkModeCardBackground : lightModeCardBackground,
+          title: Text(S.choosePaymentMethod, style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: paymentMethods.map((method) {
               return RadioListTile<String>(
-                title: Text(method),
+                title: Text(method, style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
                 value: method,
                 groupValue: selectedMethod,
                 onChanged: (value) {
@@ -332,7 +355,7 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
   String localizeStatus(String status, AppLocalizations S) {
     switch (status.toLowerCase()) {
 
-      case 'Settled':
+      case 'settled':
         return S.settled;
       case 'due':
         return S.due;
@@ -406,8 +429,8 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
 
                   return [
                     entry['tableNumber'].toString(),
-                    '${entry['total'].toStringAsFixed(2)}',
-                    '${entry['discountedTotal'].toStringAsFixed(2)}',
+                    '₹${entry['total'].toStringAsFixed(2)}',
+                    '₹${entry['discountedTotal'].toStringAsFixed(2)}',
                     entry['method'].toString(),
                     entry['status'].toString(),
                     entry['responsible'].toString(),
@@ -445,6 +468,28 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
       isFrom ? (fromDate ?? DateTime.now()) : (toDate ?? DateTime.now()),
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: isDarkMode ? ThemeData.dark().copyWith(
+            colorScheme: ColorScheme.dark(
+              primary: appBarGradientEnd, // Your primary color for dark mode pickers
+              onPrimary: Colors.white,
+              surface: darkModeCardBackground, // Use refined card background
+              onSurface: darkModeTextColor,
+            ),
+            dialogBackgroundColor: darkModeCardBackground, // Use refined card background
+          ) : ThemeData.light().copyWith(
+            colorScheme: ColorScheme.light(
+              primary: appBarGradientEnd, // Your primary color for light mode pickers
+              onPrimary: Colors.white,
+              surface: lightModeCardBackground, // Use refined card background
+              onSurface: lightModeTextColor,
+            ),
+            dialogBackgroundColor: lightModeCardBackground, // Use refined card background
+          ),
+          child: child!,
+        );
+      },
     );
     if (picked != null) {
       setState(() {
@@ -481,17 +526,17 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 8,
-      color: Colors.white,
+      color: isDarkMode ? darkModeCardBackground : lightModeCardBackground, // Use refined card background
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 30, color: Theme.of(context).primaryColor),
+            Icon(icon, size: 30, color: isDarkMode ? darkModeIconColor : Theme.of(context).primaryColor),
             SizedBox(height: 8),
             Text(label,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            Text('₹${value.toStringAsFixed(2)}', style: TextStyle(fontSize: 18)),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
+            Text('₹${value.toStringAsFixed(2)}', style: TextStyle(fontSize: 18, color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
           ],
         ),
       ),
@@ -513,22 +558,35 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
     return Animate(
       effects: [FadeEffect(duration: 600.ms), MoveEffect(begin: Offset(0, 30))],
       child: Scaffold(
+        backgroundColor: isDarkMode ? webContentBackgroundDark : webContentBackgroundLight,
         appBar: AppBar(
           title: Text(
             S.paymentReportTitle,
-            style: TextStyle(color: Colors.white), // 👈 Makes text white
+            style: TextStyle(color: isDarkMode ? Colors.white : Colors.black87),
           ),
-          backgroundColor: const Color(0xFF4CB050),
-          iconTheme: const IconThemeData(color: Colors.white),
+          iconTheme: IconThemeData(color: isDarkMode ? Colors.white : Colors.black87),
           actions: [
             IconButton(
+              icon: Icon(
+                isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                color: isDarkMode ? Colors.white : Colors.black87,
+              ),
+              onPressed: () {
+                setState(() {
+                  isDarkMode = !isDarkMode;
+                });
+              },
+              tooltip: S.toggleTheme,
+            ),
+            IconButton(
               icon: const Icon(Icons.download_rounded),
+              color: isDarkMode ? Colors.white : Colors.black87,
               onPressed: () {
                 exportPDF(context, filteredHistory);
               },
             ),
             PopupMenuButton<String>(
-              icon: const Icon(Icons.language, color: Colors.white),
+              icon: Icon(Icons.language, color: isDarkMode ? Colors.white : Colors.black87),
               onSelected: (value) {
                 switch (value) { // Use switch for better readability
                   case 'en':
@@ -549,9 +607,27 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
               ],
             ),
           ],
+          flexibleSpace: isDarkMode
+              ? Container(
+            color: Colors.grey[850],
+          )
+              : Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  appBarGradientStart,
+                  appBarGradientMid,
+                  appBarGradientEnd,
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ),
+            ),
+          ),
         ),
         body: isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(appBarGradientEnd)))
             : Padding(
           padding: const EdgeInsets.all(16.0),
           child: SingleChildScrollView(
@@ -563,40 +639,52 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16)),
                   elevation: 8,
+                  color: isDarkMode ? darkModeCardBackground : lightModeCardBackground, // Use refined card background
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(S.filterPayments,
-                            style: const TextStyle(
+                            style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                fontSize: 18)),
+                                fontSize: 18,
+                                color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
                         const SizedBox(height: 16),
                         Row(
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.date_range),
+                              icon: Icon(Icons.date_range, color: isDarkMode ? darkModeIconColor : lightModeIconColor),
                               onPressed: () => pickDate(context, true),
                             ),
                             Text(fromDate == null
                                 ? S.fromDate
-                                : DateFormat.yMd().format(fromDate!)),
+                                : DateFormat.yMd().format(fromDate!), style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
                             const SizedBox(width: 16),
                             IconButton(
-                              icon: const Icon(Icons.date_range),
+                              icon: Icon(Icons.date_range, color: isDarkMode ? darkModeIconColor : lightModeIconColor),
                               onPressed: () => pickDate(context, false),
                             ),
                             Text(toDate == null
                                 ? S.toDate
-                                : DateFormat.yMd().format(toDate!)),
+                                : DateFormat.yMd().format(toDate!), style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
                           ],
                         ),
                         const SizedBox(height: 16),
                         TextField(
                           decoration: InputDecoration(
-                              labelText: S.search,
-                              border: const OutlineInputBorder()),
+                            prefixIcon: Icon(Icons.search, color: isDarkMode ? darkModeIconColor : lightModeIconColor),
+                            labelText: S.search,
+                            labelStyle: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor),
+                            border: const OutlineInputBorder(),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: isDarkMode ? darkModeIconColor : Colors.grey.shade400),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: isDarkMode ? appBarGradientEnd : appBarGradientMid),
+                            ),
+                          ),
+                          style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor),
                           onChanged: (value) {
                             setState(() {
                               searchTerm = value;
@@ -610,8 +698,10 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                             Expanded(
                               child: DropdownButton<String>(
                                 value: methods.contains(selectedMethod) ? selectedMethod : null,
-                                hint: Text(S.method),
+                                hint: Text(S.method, style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
                                 isExpanded: true,
+                                dropdownColor: isDarkMode ? darkModeCardBackground : lightModeCardBackground, // Use refined card background
+                                style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor),
                                 items: methods.map((method) {
                                   String localizedMethod;
                                   switch (method.toLowerCase()) {
@@ -647,12 +737,14 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                             Expanded(
                               child: DropdownButton<String>(
                                 value: statuses.contains(selectedStatus) ? selectedStatus : null,
-                                hint: Text(S.status),
+                                hint: Text(S.status, style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
                                 isExpanded: true,
+                                dropdownColor: isDarkMode ? darkModeCardBackground : lightModeCardBackground, // Use refined card background
+                                style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor),
                                 items: statuses.map((status) {
                                   String localizedStatus;
                                   switch (status.toLowerCase()) {
-                                    case 'Settled':
+                                    case 'settled':
                                       localizedStatus = S.settled;
                                       break;
                                     case 'due':
@@ -681,8 +773,10 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                                     selectedResponsible)
                                     ? selectedResponsible
                                     : null,
-                                hint: Text(S.responsible),
+                                hint: Text(S.responsible, style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
                                 isExpanded: true,
+                                dropdownColor: isDarkMode ? darkModeCardBackground : lightModeCardBackground, // Use refined card background
+                                style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor),
                                 items: responsibles.map((responsible) {
                                   return DropdownMenuItem<String>(
                                     value: responsible,
@@ -702,9 +796,10 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                         const SizedBox(height: 16),
                         ElevatedButton.icon(
                           onPressed: clearFilters,
-                          icon: const Icon(Icons.clear_all),
-                          label: Text(S.clearFilters),
+                          icon: Icon(Icons.clear_all, color: isDarkMode ? Colors.white : Colors.black87),
+                          label: Text(S.clearFilters, style: TextStyle(color: isDarkMode ? Colors.white : Colors.black87)),
                           style: ElevatedButton.styleFrom(
+                            backgroundColor: isDarkMode ? appBarGradientEnd : appBarGradientMid,
                             shape: RoundedRectangleBorder(
                                 borderRadius:
                                 BorderRadius.circular(8)),
@@ -810,6 +905,7 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                           ),
                           elevation: 4,
                           margin: const EdgeInsets.symmetric(vertical: 8),
+                          color: isDarkMode ? darkModeCardBackground : lightModeCardBackground, // Use refined card background
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
                             child: Row(
@@ -822,16 +918,16 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                                     children: [
                                       Text(
                                         '${S.table} ${entry['tableNumber'] ?? '-'}',
-                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                        style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? darkModeTextColor : lightModeTextColor),
                                       ),
                                       Text(
                                         '$method | $status | $responsible',
-                                        style: const TextStyle(color: Colors.grey),
+                                        style: TextStyle(color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
                                         '${S.time}: $timestamp',
-                                        style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
+                                        style: TextStyle(fontSize: 12, color: isDarkMode ? Colors.grey.shade500 : Colors.blueGrey),
                                       ),
                                     ],
                                   ),
@@ -841,11 +937,11 @@ class _PaymentReportScreenState extends State<PaymentReportScreen> {
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
-                                    Text('₹${entry['total'] ?? '0.0'}'),
+                                    Text('₹${entry['total'] ?? '0.0'}', style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
                                     if ((entry['method'] ?? '').toString().toLowerCase() == 'due')
                                       TextButton(
                                         onPressed: () => markAsSettled(entry),
-                                        style: TextButton.styleFrom(foregroundColor: Colors.green),
+                                        style: TextButton.styleFrom(foregroundColor: isDarkMode ? Colors.lightGreenAccent : Colors.green),
                                         child: Text(S.markAsSettled),
                                       ),
                                   ],

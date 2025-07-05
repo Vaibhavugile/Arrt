@@ -30,19 +30,39 @@ class _BillingScreenState extends State<BillingScreen> {
   String responsibleName = '';
   double discountPercentage = 0.0;
 
+  bool isDarkMode = false; // Added for theme toggle
+
+  // Theme Colors - Adopted from inventory_screen.dart
+  final Color lightModeBackgroundColor = const Color(0xFFF0F2F5);
+  final Color darkModeBackgroundColor = const Color(0xFF1E1E1E);
+  final Color lightModeCardColor = Colors.white;
+  final Color darkModeCardColor = const Color(0xFF2C2C2C);
+  final Color lightModeTextColor = Colors.black87;
+  final Color darkModeTextColor = Colors.white;
+  final Color lightModeCardTextColor = Colors.grey.shade800;
+  final Color darkModeCardTextColor = Colors.grey.shade200;
+  final Color lightModeIconColor = Colors.grey.shade700;
+  final Color darkModeIconColor = Colors.grey.shade400;
+  final Color lightModeAppBarColor = Colors.white;
+  final Color darkModeAppBarColor = const Color(0xFF2C2C2C);
+  final Color fabColor = const Color(0xFFBFEBFA); // Used for primary buttons/FAB
+  final Color filterChipSelectedColor = const Color(0xFFBFEBFA);
+  final Color filterChipTextColor = Colors.black87;
+
+
   final BlueThermalPrinter bluetoothPrinter = BlueThermalPrinter.instance;
   @override
   void initState() {
-
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      setState(() {
-        branchCode = userProvider.branchCode!;
-      });
+    // Initialize branchCode directly in initState
+    // Provider.of can be used in initState with listen: false to access data
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    branchCode = userProvider.branchCode!; // Initialize branchCode here
+
+    // Now that branchCode is initialized, you can safely call fetchTables
     fetchTables();
-    });
   }
+
 
   Future<void> fetchTables() async {
     try {
@@ -92,10 +112,10 @@ class _BillingScreenState extends State<BillingScreen> {
 
       // Disconnect before connecting again to avoid stale socket
       await bluetoothPrinter.disconnect();
-      await Future.delayed(Duration(milliseconds: 300));
+      await Future.delayed(const Duration(milliseconds: 300));
 
       await bluetoothPrinter.connect(devices.first);
-      await Future.delayed(Duration(seconds: 1));
+      await Future.delayed(const Duration(seconds: 1));
 
       final connected = await bluetoothPrinter.isConnected ?? false;
       if (connected) {
@@ -113,12 +133,12 @@ class _BillingScreenState extends State<BillingScreen> {
     return showDialog<BluetoothDevice>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text('Select a printer'),
+        title: const Text('Select a printer'),
         content: SizedBox(
           height: 300,
           width: double.maxFinite,
           child: devices.isEmpty
-              ? Center(child: Text("No paired printers found"))
+              ? const Center(child: Text("No paired printers found"))
               : ListView.builder(
             itemCount: devices.length,
             itemBuilder: (_, index) {
@@ -134,7 +154,7 @@ class _BillingScreenState extends State<BillingScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(), // ✅ Use dialogContext here too
-            child: Text('Cancel'),
+            child: const Text('Cancel'),
           ),
         ],
       ),
@@ -188,7 +208,7 @@ class _BillingScreenState extends State<BillingScreen> {
         context: context,
         builder: (context) {
           return AlertDialog(
-            title: Text("Select Printer"),
+            title: const Text("Select Printer"),
             content: SizedBox(
               width: double.maxFinite,
               child: ListView.builder(
@@ -227,7 +247,7 @@ class _BillingScreenState extends State<BillingScreen> {
 
       // Try to connect
       await bluetoothPrinter.connect(device);
-      await Future.delayed(Duration(seconds: 1));
+      await Future.delayed(const Duration(seconds: 1));
 
       final isConnected = await bluetoothPrinter.isConnected ?? false;
       if (!isConnected) {
@@ -276,7 +296,7 @@ class _BillingScreenState extends State<BillingScreen> {
 
       // Totals
       final tax = totalPrice * 0.05;
-      final discount = 0.0;
+      const discount = 0.0;
       final grandTotal = totalPrice + tax - discount;
 
       bluetoothPrinter.printCustom("Subtotal           ${totalPrice.toStringAsFixed(2)}", 1, 2);
@@ -470,85 +490,96 @@ class _BillingScreenState extends State<BillingScreen> {
       maxChildSize: 0.95,
       builder: (context, scrollController) {
         return ClipRRect(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
             child: Container(
-              color: Colors.white.withOpacity(0.92),
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              color: isDarkMode ? darkModeCardColor.withOpacity(0.92) : lightModeCardColor.withOpacity(0.92),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
               child: StatefulBuilder(
                 builder: (context, modalSetState) => ListView(
                   controller: scrollController,
                   children: [
                     Text(
                       '${loc.payment} - ${loc.table} ${selectedTable?['tableNumber']}',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF263238)),
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: isDarkMode ? darkModeTextColor : lightModeTextColor),
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
                     if (orders.isNotEmpty)
                       ...orders.map((order) => Card(
-                        margin: EdgeInsets.symmetric(vertical: 4),
+                        margin: const EdgeInsets.symmetric(vertical: 4),
                         elevation: 2,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        color: isDarkMode ? darkModeCardColor : lightModeCardColor, // Card color
                         child: ListTile(
-                          title: Text(order['name'], style: TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('${loc.qty}: ${order['quantity']} x ₹${order['price']}'),
+                          title: Text(order['name'], style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? darkModeCardTextColor : lightModeCardTextColor)),
+                          subtitle: Text('${loc.qty}: ${order['quantity']} x ₹${order['price']}', style: TextStyle(color: isDarkMode ? darkModeCardTextColor : lightModeCardTextColor)),
                           trailing: Text(
                             '₹${(order['quantity'] * order['price']).toStringAsFixed(2)}',
-                            style: TextStyle(fontWeight: FontWeight.w500),
+                            style: TextStyle(fontWeight: FontWeight.w500, color: isDarkMode ? darkModeCardTextColor : lightModeCardTextColor),
                           ),
                         ),
                       )),
                     if (orders.isEmpty)
-                      Center(child: Text(loc.noOrdersFound, style: TextStyle(color: Colors.grey))),
+                      Center(child: Text(loc.noOrdersFound, style: TextStyle(color: isDarkMode ? darkModeCardTextColor : lightModeCardTextColor))),
 
-                    Divider(height: 32, thickness: 1),
+                    const Divider(height: 32, thickness: 1),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('${loc.total}:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                        Text('₹${totalPrice.toStringAsFixed(2)}', style: TextStyle(fontSize: 16)),
+                        Text('${loc.total}:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
+                        Text('₹${totalPrice.toStringAsFixed(2)}', style: TextStyle(fontSize: 16, color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
                       ],
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('${loc.discounted}:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        Text('${loc.discounted}:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
                         Text('₹${discountedPrice.toStringAsFixed(2)}',
-                            style: TextStyle(fontSize: 16, color: Colors.green.shade700)),
+                            style: TextStyle(fontSize: 16, color: Colors.green.shade700)), // Keep green for positive effect
                       ],
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
                     TextField(
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
                         labelText: '${loc.discount} %',
-                        prefixIcon: Icon(Icons.percent),
+                        prefixIcon: Icon(Icons.percent, color: isDarkMode ? darkModeIconColor : lightModeIconColor),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        labelStyle: TextStyle(color: isDarkMode ? darkModeCardTextColor : lightModeCardTextColor),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: isDarkMode ? darkModeCardTextColor : Colors.grey.shade400),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: isDarkMode ? fabColor : Colors.blue.shade700),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
+                      style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor),
                       onChanged: (val) {
                         modalSetState(() {
                           discountPercentage = double.tryParse(val) ?? 0.0;
                         });
                       },
                     ),
-                    SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
-                    Text('${loc.paymentMethod}:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    SizedBox(height: 8),
+                    Text('${loc.paymentMethod}:', style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
+                    const SizedBox(height: 8),
                     Wrap(
                       spacing: 10,
                       children: [loc.cash, loc.card, loc.upi, loc.due].map((method) {
                         return ChoiceChip(
                           label: Text(method),
                           selected: paymentMethod == method,
-                          selectedColor: Color(0xFF1565C0),
-                          backgroundColor: Color(0xFFE3F2FD),
+                          selectedColor: filterChipSelectedColor,
+                          backgroundColor: isDarkMode ? Colors.blueGrey.shade700.withOpacity(0.2) : Colors.blue.shade100.withOpacity(0.2),
                           labelStyle: TextStyle(
-                            color: paymentMethod == method ? Colors.white : Colors.black87,
+                            color: paymentMethod == method ? filterChipTextColor : (isDarkMode ? darkModeCardTextColor : lightModeCardTextColor),
                           ),
                           onSelected: (_) {
                             modalSetState(() => paymentMethod = method);
@@ -556,20 +587,20 @@ class _BillingScreenState extends State<BillingScreen> {
                         );
                       }).toList(),
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
-                    Text('${loc.paymentStatus}:', style: TextStyle(fontWeight: FontWeight.bold)),
-                    SizedBox(height: 8),
+                    Text('${loc.paymentStatus}:', style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? darkModeTextColor : lightModeTextColor)),
+                    const SizedBox(height: 8),
                     Wrap(
                       spacing: 10,
                       children: [loc.settled, loc.due].map((status) {
                         return ChoiceChip(
                           label: Text(status),
                           selected: paymentStatus == status,
-                          selectedColor: status == loc.settled ? Color(0xFF2E7D32) : Color(0xFFF9A825),
-                          backgroundColor: Colors.grey.shade200,
+                          selectedColor: status == loc.settled ? Colors.green.shade700 : Colors.red.shade700,
+                          backgroundColor: isDarkMode ? Colors.grey.shade700.withOpacity(0.2) : Colors.grey.shade200,
                           labelStyle: TextStyle(
-                            color: paymentStatus == status ? Colors.white : Colors.black87,
+                            color: paymentStatus == status ? filterChipTextColor : (isDarkMode ? darkModeCardTextColor : lightModeCardTextColor),
                           ),
                           onSelected: (_) {
                             modalSetState(() => paymentStatus = status);
@@ -579,40 +610,49 @@ class _BillingScreenState extends State<BillingScreen> {
                     ),
 
                     if (paymentStatus == loc.due) ...[
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       TextField(
                         decoration: InputDecoration(
                           labelText: loc.responsiblePerson,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          labelStyle: TextStyle(color: isDarkMode ? darkModeCardTextColor : lightModeCardTextColor),
+                          enabledBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: isDarkMode ? darkModeCardTextColor : Colors.grey.shade400),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderSide: BorderSide(color: isDarkMode ? fabColor : Colors.blue.shade700),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
+                        style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor),
                         onChanged: (val) => modalSetState(() => responsibleName = val),
                       ),
                     ],
 
-                    SizedBox(height: 28),
+                    const SizedBox(height: 28),
                     ElevatedButton.icon(
-                    onPressed: handleSavePayment,
-
-                      icon: Icon(Icons.save),
+                      onPressed: handleSavePayment,
+                      icon: const Icon(Icons.save),
                       label: Text(loc.savePayment),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFF1565C0),
-                        foregroundColor: Colors.white,
+                        backgroundColor: fabColor,
+                        foregroundColor: filterChipTextColor,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        minimumSize: Size.fromHeight(50),
+                        minimumSize: const Size.fromHeight(50),
                         elevation: 4,
                       ),
                     ),
-                    SizedBox(height: 14),
+                    const SizedBox(height: 14),
                     ElevatedButton.icon(
                       onPressed: selectedTable != null ? () => printReceipt(context, selectedTable!) : null,
-                      icon: Icon(Icons.print),
+                      icon: const Icon(Icons.print),
                       label: Text(loc.printReceipt),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey.shade800,
-                        foregroundColor: Colors.white,
+                        backgroundColor: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade800,
+                        foregroundColor: filterChipTextColor,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        minimumSize: Size.fromHeight(48),
+                        minimumSize: const Size.fromHeight(48),
                         elevation: 3,
                       ),
                     ),
@@ -629,182 +669,189 @@ class _BillingScreenState extends State<BillingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isLargeScreen = MediaQuery.of(context).size.width > 700;
+
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Color(0xFF4CB050),
+      backgroundColor: isDarkMode ? darkModeBackgroundColor : lightModeBackgroundColor,
+      appBar: isLargeScreen
+          ? null // No AppBar on large screens (web)
+          : AppBar(
+        backgroundColor: isDarkMode ? darkModeAppBarColor : lightModeAppBarColor,
         title: Text(
           'La Casa',
-          style: TextStyle(color: Colors.white), // 👈 Makes text white
+          style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor),
         ),
-        iconTheme: IconThemeData(color: Colors.white), // optional: makes back icon white too
+        iconTheme: IconThemeData(color: isDarkMode ? darkModeIconColor : lightModeIconColor),
+        actions: [
+          IconButton(
+            icon: Icon(isDarkMode ? Icons.light_mode : Icons.dark_mode, color: isDarkMode ? darkModeIconColor : lightModeIconColor),
+            onPressed: () {
+              setState(() {
+                isDarkMode = !isDarkMode;
+              });
+            },
+            tooltip: 'Toggle Theme',
+          ),
+        ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 16.0, vertical: 12),
-              child: SizedBox(
-                width: double.infinity,
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(12.0, 16.0, 12.0, 0), // Added top padding here
+        child: StreamBuilder<QuerySnapshot>(
+          stream: _db
+              .collection('tables')
+              .doc(branchCode)
+              .collection('tables')
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}', style: TextStyle(color: isDarkMode ? darkModeTextColor : lightModeTextColor)));
+            }
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
+            final docs = snapshot.data!.docs;
+            final tables = docs.map((d) {
+              final data = d.data()! as Map<String, dynamic>;
+              return {
+                'id': d.id,
+                ...data,
+                'orderStatus': data['orderStatus'] ?? 'Running Order',
+              };
+            }).toList();
+
+            if (tables.isEmpty) {
+              return Center(
+                child: Text(
+                  "No tables available.",
+                  style: TextStyle(color: isDarkMode ? darkModeCardTextColor : lightModeCardTextColor),
+                ),
+              );
+            }
+
+            return GridView.builder(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: MediaQuery.of(context).size.width > 900 ? 5 : (MediaQuery.of(context).size.width > 600 ? 4 : 2), // Adjusted for smaller cards
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 0.85, // Adjusted to make cards "smaller" (taller/narrower)
               ),
-            ),
+              itemCount: tables.length,
+              itemBuilder: (context, index) {
+                final table = tables[index];
+                final totalPrice = calculateTotalPrice(table['orders']);
+                final hasOrders = (table['orders'] as List?)?.isNotEmpty ?? false;
 
-            // Real-time table list
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: _db
-                      .collection('tables')
-                      .doc(branchCode)
-                      .collection('tables')
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      return Center(child: Text('Error: ${snapshot.error}'));
-                    }
-                    if (!snapshot.hasData) {
-                      return Center(child: CircularProgressIndicator());
-                    }
+                return Container(
+                  decoration: BoxDecoration(
+                    color: isDarkMode ? darkModeCardColor : lightModeCardColor,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isDarkMode ? Colors.black.withOpacity(0.5) : Colors.black12,
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: hasOrders ? Colors.orange.shade400 : Colors.green.shade400, // Adjusted colors
+                      width: 1,
+                    ),
 
-                    final docs = snapshot.data!.docs;
-                    final tables = docs.map((d) {
-                      final data = d.data()! as Map<String, dynamic>;
-                      return {
-                        'id': d.id,
-                        ...data,
-                        'orderStatus': data['orderStatus'] ?? 'Running Order',
-                      };
-                    }).toList();
-
-                    if (tables.isEmpty) {
-                      return Center(
-                        child: Text(
-                          "No tables available.",
-                          style: TextStyle(color: Colors.grey),
+                  ),
+                  child: InkWell( // Changed from Material to InkWell
+                    borderRadius: BorderRadius.circular(16), // Apply borderRadius here as well for InkWell
+                    onTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MenuPage(tableId: table['id']),
                         ),
                       );
-                    }
-
-                    return GridView.builder(
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: MediaQuery.of(context).size.width > 600 ? 3 : 2,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 1.05,
-                      ),
-                      itemCount: tables.length,
-                      itemBuilder: (context, index) {
-                        final table = tables[index];
-                        final totalPrice = calculateTotalPrice(table['orders']);
-                        final hasOrders = (table['orders'] as List?)?.isNotEmpty ?? false;
-
-                        return Container(
-                          decoration: BoxDecoration(
-                            color: Color(0xFFF9FAFB),
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black12,
-                                blurRadius: 8,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
-                            border: Border.all(
-                              color: hasOrders ? Colors.red.shade400 : Colors.green.shade400,
-                              width: 1,
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        children: [
+                          Icon(Icons.table_restaurant, size: 20, color: isDarkMode ? darkModeIconColor : lightModeIconColor),
+                          const SizedBox(height: 8),
+                          Text(
+                            ' ${table['tableNumber']}',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: isDarkMode ? darkModeCardTextColor : lightModeCardTextColor,
                             ),
-
+                            textAlign: TextAlign.center,
                           ),
-                          child: Material(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(16),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(16),
-                              onTap: () async {
-                                await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => MenuPage(tableId: table['id']),
-                                  ),
-                                );
-                              },
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  children: [
-                                    Icon(Icons.table_restaurant, size: 20, color: Color(0xFF455A64)),
-                                    SizedBox(height: 8),
-                                    Text(
-                                      ' ${table['tableNumber']}',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w600,
-                                        color: Color(0xFF333333),
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    Spacer(),
-                                    SizedBox(height: 12),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: ElevatedButton(
-                                        onPressed: () => openPaymentModal(table),
-                                        style: ElevatedButton.styleFrom(
-                                          elevation: 3,
-                                          backgroundColor: Color(0xFF4CB050),
-                                          foregroundColor: Colors.white,
-                                          padding: EdgeInsets.symmetric(vertical: 12),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(10),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(Icons.payment, size: 18),
-                                            SizedBox(width: 8),
-                                            Text(
-                                              'Pay ₹${totalPrice.toStringAsFixed(2)}',
-                                              style: TextStyle(fontWeight: FontWeight.w600),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                          const Spacer(),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () => openPaymentModal(table),
+                              style: ElevatedButton.styleFrom(
+                                elevation: 3,
+                                backgroundColor: fabColor,
+                                foregroundColor: filterChipTextColor,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.payment, size: 18),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Pay ₹${totalPrice.toStringAsFixed(2)}',
+                                    style: const TextStyle(fontWeight: FontWeight.w600),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        );
-                      },
-                    );
-
-
-
-
-
-
-
-
-                  },
-                ),
-              ),
-            ),
-          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => AddTable()),
-          );
+      floatingActionButton: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth > 700) {
+            // Show a FAB on large screens (web) for theme toggle
+            return FloatingActionButton(
+              onPressed: () {
+                setState(() {
+                  isDarkMode = !isDarkMode;
+                });
+              },
+              backgroundColor: fabColor,
+              child: Icon(
+                isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                color: filterChipTextColor,
+              ),
+              tooltip: 'Toggle Theme',
+            );
+          } else {
+            return FloatingActionButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => AddTable()),
+                );
+              },
+              backgroundColor: fabColor,
+              child: const Icon(Icons.add),
+            );
+          }
         },
-        backgroundColor: Color(0xFF4CB050),
-        child: Icon(Icons.add),
       ),
     );
   }
