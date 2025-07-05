@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter_gen/gen_l10n/app_localizations.dart'; // <-- Add this line
+import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:art/providers/user_provider.dart';
 
 class AddProductScreen extends StatefulWidget {
@@ -29,6 +29,9 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
   List<String> _filteredCategories = [];
 
   List<Map<String, dynamic>> _allIngredients = [];
+
+  // Add isDarkMode state for this screen
+  bool isDarkMode = false;
 
   @override
   void initState() {
@@ -221,7 +224,7 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
     }
   }
 
-  Widget _buildTextField(TextEditingController controller, String labelKey, TextInputType type) {
+  Widget _buildTextField(TextEditingController controller, String labelKey, TextInputType type, {bool isDarkMode = false}) {
     final loc = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -230,8 +233,23 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
         keyboardType: type,
         decoration: InputDecoration(
           labelText: loc.getTranslatedField(labelKey),
-          border: OutlineInputBorder(),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: isDarkMode ? Colors.blueAccent : Colors.blue),
+          ),
+          fillColor: isDarkMode ? Colors.grey[700] : Colors.grey[50], // Lighter fill for dark mode
+          filled: true,
+          labelStyle: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black87),
         ),
+        style: TextStyle(color: isDarkMode ? Colors.white : Colors.black87),
         onChanged: labelKey == 'category'
             ? _handleCategoryChange
             : labelKey == 'subcategory'
@@ -250,45 +268,66 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
     );
   }
 
-  Widget _buildCategoryField() {
+  Widget _buildCategoryField({bool isDarkMode = false}) {
     final loc = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTextField(_categoryController, 'category', TextInputType.text),
+        _buildTextField(_categoryController, 'category', TextInputType.text, isDarkMode: isDarkMode),
         if (_filteredCategories.isNotEmpty)
-          ..._filteredCategories.map((cat) => ListTile(
-            title: Text(cat),
-            onTap: () => _handleCategorySelect(cat),
-          )),
+          Card(
+            color: isDarkMode ? Colors.grey[800] : Colors.white,
+            elevation: 2,
+            margin: EdgeInsets.zero,
+            child: Column(
+              children: _filteredCategories.map((cat) => ListTile(
+                title: Text(cat, style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black87)),
+                onTap: () => _handleCategorySelect(cat),
+              )).toList(),
+            ),
+          ),
       ],
     );
   }
 
-  Widget _buildSubcategoryField() {
+  Widget _buildSubcategoryField({bool isDarkMode = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTextField(_subcategoryController, 'subcategory', TextInputType.text),
+        _buildTextField(_subcategoryController, 'subcategory', TextInputType.text, isDarkMode: isDarkMode),
         if (_filteredSubcategories.isNotEmpty)
-          ..._filteredSubcategories.map((sub) => ListTile(
-            title: Text(sub),
-            onTap: () => _handleSubcategorySelect(sub),
-          )),
+          Card(
+            color: isDarkMode ? Colors.grey[800] : Colors.white,
+            elevation: 2,
+            margin: EdgeInsets.zero,
+            child: Column(
+              children: _filteredSubcategories.map((sub) => ListTile(
+                title: Text(sub, style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black87)),
+                onTap: () => _handleSubcategorySelect(sub),
+              )).toList(),
+            ),
+          ),
       ],
     );
   }
 
-  Widget _buildIngredientRow(int i, List<String> categoryList) {
+  Widget _buildIngredientRow(int i, List<String> categoryList, {bool isDarkMode = false}) {
     final loc = AppLocalizations.of(context)!;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: AnimatedContainer(
         duration: Duration(milliseconds: 300),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
           borderRadius: BorderRadius.circular(12),
-          color: Colors.grey.shade100,
+          color: isDarkMode ? Colors.grey.shade900 : Colors.grey.shade100,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDarkMode ? 0.2 : 0.05),
+              blurRadius: 5,
+              offset: Offset(0, 2),
+            ),
+          ],
         ),
         padding: EdgeInsets.all(12),
         child: Column(
@@ -296,9 +335,9 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("${loc.ingredient} ${i + 1}", style: TextStyle(fontWeight: FontWeight.bold)),
+                Text("${loc.ingredient} ${i + 1}", style: TextStyle(fontWeight: FontWeight.bold, color: isDarkMode ? Colors.white70 : Colors.black87)),
                 IconButton(
-                  icon: Icon(Icons.delete, color: Colors.red),
+                  icon: Icon(Icons.delete, color: isDarkMode ? Colors.redAccent : Colors.red),
                   onPressed: () => _removeIngredientField(i),
                 ),
               ],
@@ -306,8 +345,25 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
             SizedBox(height: 10),
             DropdownButtonFormField<String>(
               value: _ingredients[i]['category']!.isEmpty ? null : _ingredients[i]['category'],
-              hint: Text(loc.category),
-              decoration: InputDecoration(border: OutlineInputBorder()),
+              hint: Text(loc.category, style: TextStyle(color: isDarkMode ? Colors.white54 : Colors.grey[600])),
+              decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: isDarkMode ? Colors.blueAccent : Colors.blue),
+                ),
+                fillColor: isDarkMode ? Colors.grey[700] : Colors.grey[50],
+                filled: true,
+              ),
+              dropdownColor: isDarkMode ? Colors.grey[800] : Colors.white, // Dropdown background
+              style: TextStyle(color: isDarkMode ? Colors.white : Colors.black87), // Dropdown text color
               items: categoryList.map((cat) {
                 return DropdownMenuItem<String>(
                   value: cat,
@@ -321,8 +377,25 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
               value: _ingredients[i]['ingredientName']!.isEmpty
                   ? null
                   : _ingredients[i]['ingredientName'],
-              hint: Text(loc.ingredient),
-              decoration: InputDecoration(border: OutlineInputBorder()),
+              hint: Text(loc.ingredient, style: TextStyle(color: isDarkMode ? Colors.white54 : Colors.grey[600])),
+              decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: isDarkMode ? Colors.blueAccent : Colors.blue),
+                ),
+                fillColor: isDarkMode ? Colors.grey[700] : Colors.grey[50],
+                filled: true,
+              ),
+              dropdownColor: isDarkMode ? Colors.grey[800] : Colors.white, // Dropdown background
+              style: TextStyle(color: isDarkMode ? Colors.white : Colors.black87), // Dropdown text color
               items: _allIngredients
                   .where((ing) => ing['category'] == _ingredients[i]['category'])
                   .map((ing) {
@@ -338,11 +411,26 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
               decoration: InputDecoration(
                 labelText: loc.quantity_used,
                 hintText: loc.quantity_example,
-                border: OutlineInputBorder(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: isDarkMode ? Colors.blueAccent : Colors.blue),
+                ),
+                fillColor: isDarkMode ? Colors.grey[700] : Colors.grey[50],
+                filled: true,
+                labelStyle: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black87),
               ),
               keyboardType: TextInputType.number,
               onChanged: (value) => _handleInputChange(i, 'quantityUsed', value),
               initialValue: _ingredients[i]['quantityUsed'],
+              style: TextStyle(color: isDarkMode ? Colors.white : Colors.black87),
             ),
           ],
         ),
@@ -355,62 +443,176 @@ class _AddProductScreenState extends State<AddProductScreen> with TickerProvider
     final loc = AppLocalizations.of(context)!;
     final categoryList = _allIngredients.map((ing) => ing['category']?.toString() ?? '').toSet().toList();
 
+    // Define theme colors consistent with ProductScreen
+    final Color appBarGradientStart = Color(0xFFE0FFFF); // Muted light blue
+    final Color appBarGradientMid = Color(0xFFBFEBFA);   // Steel Blue
+    final Color appBarGradientEnd = Color(0xFF87CEEB);   // Dark Indigo (This is a good accent color)
+
+    final Color lightModeCardSolidColor = Colors.grey[100]!; // Changed to light grey
+    final Color darkModeCardColor = Colors.grey[800]!; // Dark mode card background
+    final Color lightModeCardIconColor = Colors.black87; // Dark icons
+    final Color lightModeCardTextColor = Colors.black87; // Dark text
+    final Color darkModeIconColor = Color(0xFF9AC0C6); // Lighter blue for dark mode icons
+    final Color darkModeTextColor = Colors.white70; // Dark text
+
+    final Color webContentBackgroundLight = Colors.white;
+    final Color webContentBackgroundDark = Colors.grey[900]!;
+
     return Scaffold(
+      backgroundColor: isDarkMode ? webContentBackgroundDark : webContentBackgroundLight, // Apply content background
       appBar: AppBar(
-        backgroundColor: Color(0xFF4CB050),
-        title: Text(loc.add_product, style: TextStyle(color: Colors.white)),
-        iconTheme: IconThemeData(color: Colors.white),
-      ),
-      body: Stack(
-        children: [
-          AnimatedSwitcher(
-            duration: Duration(milliseconds: 400),
-            child: _isLoading
-                ? Center(child: CircularProgressIndicator())
-                : Padding(
-              padding: EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: ListView(
-                  children: [
-                    _buildTextField(_nameController, 'product_name', TextInputType.text),
-                    _buildTextField(_priceController, 'price', TextInputType.number),
-                    _buildSubcategoryField(),
-                    SizedBox(height: 20),
-                    Text(loc.ingredients, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    AnimatedSize(
-                      duration: Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                      child: Column(
-                        children: List.generate(_ingredients.length, (i) {
-                          return _buildIngredientRow(i, categoryList);
-                        }),
-                      ),
-                    ),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: _addIngredientField,
-                        icon: Icon(Icons.add_circle_outline),
-                        label: Text(loc.add_ingredient),
-                      ),
-                    ),
-                    SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: _submitForm,
-                      icon: Icon(Icons.save, color: Colors.white),
-                      label: Text(loc.add_product, style: TextStyle(color: Colors.white)),
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: Size(double.infinity, 48),
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+        title: Text(loc.add_product, style: TextStyle(color: isDarkMode ? Colors.white : Colors.black87)), // Title color for contrast on gradient
+        iconTheme: IconThemeData(color: isDarkMode ? Colors.white : Colors.white), // Icons color for contrast on gradient
+        actions: [
+          IconButton(
+            icon: Icon(
+              isDarkMode ? Icons.light_mode : Icons.dark_mode,
+              color: Colors.white,
             ),
+            onPressed: () {
+              setState(() {
+                isDarkMode = !isDarkMode;
+              });
+            },
+            tooltip: loc.toggleTheme, // Assuming you have this string in app_localizations.dart
           ),
         ],
+        flexibleSpace: isDarkMode
+            ? Container(
+          color: Colors.grey[850], // Dark mode AppBar background
+        )
+            : Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                appBarGradientStart,
+                appBarGradientMid,
+                appBarGradientEnd,
+              ],
+              stops: const [0.0, 0.5, 1.0],
+            ),
+          ),
+        ),
+      ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          bool isLargeScreen = constraints.maxWidth > 700;
+
+          return Stack(
+            children: [
+              AnimatedSwitcher(
+                duration: Duration(milliseconds: 400),
+                child: _isLoading
+                    ? Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(isDarkMode ? appBarGradientMid : appBarGradientEnd)))
+                    : isLargeScreen
+                    ? Center( // Center the form on large screens
+                  child: SingleChildScrollView( // Use SingleChildScrollView for the form
+                    padding: const EdgeInsets.all(24.0),
+                    child: ConstrainedBox( // Constrain max width for better readability on very wide screens
+                      constraints: BoxConstraints(maxWidth: 800), // Adjust max width as needed
+                      child: Card(
+                        elevation: 5,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        color: isDarkMode ? darkModeCardColor : lightModeCardSolidColor,
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min, // Keep column compact vertically
+                              children: [
+                                // Title moved to AppBar. No need for a separate header here.
+                                _buildTextField(_nameController, 'product_name', TextInputType.text, isDarkMode: isDarkMode),
+                                _buildTextField(_priceController, 'price', TextInputType.number, isDarkMode: isDarkMode),
+                                _buildSubcategoryField(isDarkMode: isDarkMode),
+                                SizedBox(height: 20),
+                                Text(loc.ingredients, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDarkMode ? darkModeTextColor : lightModeCardTextColor)),
+                                AnimatedSize(
+                                  duration: Duration(milliseconds: 300),
+                                  curve: Curves.easeInOut,
+                                  child: Column(
+                                    children: List.generate(_ingredients.length, (i) {
+                                      return _buildIngredientRow(i, categoryList, isDarkMode: isDarkMode);
+                                    }),
+                                  ),
+                                ),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: TextButton.icon(
+                                    onPressed: _addIngredientField,
+                                    icon: Icon(Icons.add_circle_outline, color: isDarkMode ? appBarGradientMid : appBarGradientEnd),
+                                    label: Text(loc.add_ingredient, style: TextStyle(color: isDarkMode ? appBarGradientMid : appBarGradientEnd)),
+                                  ),
+                                ),
+                                SizedBox(height: 24),
+                                ElevatedButton.icon(
+                                  onPressed: _submitForm,
+                                  icon: Icon(Icons.save, color: Colors.black87),
+                                  label: Text(loc.add_product, style: TextStyle(color: Colors.black87)),
+                                  style: ElevatedButton.styleFrom(
+                                    minimumSize: Size(double.infinity, 48),
+                                    backgroundColor: isDarkMode ? appBarGradientEnd : appBarGradientMid, // Themed button color
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+                    : Padding( // Mobile layout
+                  padding: EdgeInsets.all(16),
+                  child: Form(
+                    key: _formKey,
+                    child: ListView(
+                      children: [
+                        _buildTextField(_nameController, 'product_name', TextInputType.text, isDarkMode: isDarkMode),
+                        _buildTextField(_priceController, 'price', TextInputType.number, isDarkMode: isDarkMode),
+                        _buildSubcategoryField(isDarkMode: isDarkMode),
+                        SizedBox(height: 20),
+                        Text(loc.ingredients, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDarkMode ? darkModeTextColor : lightModeCardTextColor)),
+                        AnimatedSize(
+                          duration: Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                          child: Column(
+                            children: List.generate(_ingredients.length, (i) {
+                              return _buildIngredientRow(i, categoryList, isDarkMode: isDarkMode);
+                            }),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: _addIngredientField,
+                            icon: Icon(Icons.add_circle_outline, color: isDarkMode ? appBarGradientMid : appBarGradientEnd),
+                            label: Text(loc.add_ingredient, style: TextStyle(color: isDarkMode ? appBarGradientMid : appBarGradientEnd)),
+                          ),
+                        ),
+                        SizedBox(height: 24),
+                        ElevatedButton.icon(
+                          onPressed: _submitForm,
+                          icon: Icon(Icons.save, color: Colors.black87),
+                          label: Text(loc.add_product, style: TextStyle(color: Colors.black87)),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: Size(double.infinity, 48),
+                            backgroundColor: isDarkMode ? appBarGradientEnd : appBarGradientMid,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

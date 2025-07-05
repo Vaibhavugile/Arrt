@@ -224,6 +224,14 @@
   "vendorDetails": "Vendor Details",
   "stockDetails": "Stock Details",
   "noStockDetailsFound": "No stock details found",
+  "error_loading_vendors": "Error loading vendors.",
+  "error_loading_items": "Error loading items.",
+  "selected_item_not_found": "Selected item not found.",
+  "no_entries_to_submit": "No entries to submit.",
+  "error_adding_stock": "Error adding stock.",
+  "addStockEntry": "Add Stock Entry",
+  "error_loading_inventory": "Error loading inventory.",
+  "error_adding_vendor": "Error adding vendor.",
   "@quantity": {
     "placeholders": {
       "qty": {},

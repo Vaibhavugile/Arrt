@@ -8,6 +8,7 @@ import 'inventory_screen.dart';
 import 'vendor_screen.dart';
 import 'order_report_screen.dart';
 import 'payment_report_screen.dart';
+import 'package:google_fonts/google_fonts.dart'; // Import Google Fonts
 
 class BranchDashboard extends StatefulWidget {
   @override
@@ -70,7 +71,25 @@ class _BranchDashboardState extends State<BranchDashboard> {
     return Scaffold(
       backgroundColor: isDarkMode ? webContentBackgroundDark : webContentBackgroundLight,
       appBar: AppBar(
-        title: Text(S.branchDashboard, style: const TextStyle(color: Colors.black)),
+        toolbarHeight: 90, // Keep the custom toolbar height
+        title: Padding( // Wrap with Padding to center vertically if needed
+          padding: const EdgeInsets.only(top: 8.0, bottom: 8.0), // Adjust padding as needed
+          child: Column( // Use a Column to stack "AnnaParcha" and "Jaha Anna, Waha Parcha"
+            mainAxisSize: MainAxisSize.min, // Keep column compact
+            crossAxisAlignment: CrossAxisAlignment.start, // Align text to start
+            children: [
+              Text(
+                'Anna Parcha',
+                style: GoogleFonts.michroma( // Changed to GoogleFonts.greatVibes
+                  fontSize: 40, // Adjust size to match the image
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFFCCAC57), // Golden/yellowish color from the logo
+                ),
+              ),
+
+            ],
+          ),
+        ),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           PopupMenuButton<String>(

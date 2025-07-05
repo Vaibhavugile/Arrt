@@ -1,9 +1,11 @@
+// lib/app.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'screens/login_screen.dart';
+import 'screens/login_screen.dart'; // Keep this import for future navigation
+import 'screens/splash_screen.dart'; // <--- NEW: Import your SplashScreen
 import 'providers/user_provider.dart';
 
 class MyApp extends StatefulWidget {
@@ -11,6 +13,8 @@ class MyApp extends StatefulWidget {
     final _MyAppState? state = context.findAncestorStateOfType<_MyAppState>();
     state?.changeLocale(newLocale);
   }
+
+  const MyApp({Key? key}) : super(key: key); // Add const constructor
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -30,6 +34,7 @@ class _MyAppState extends State<MyApp> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()),
+        // Add other providers here if you have any
       ],
       child: MaterialApp(
         title: 'Arthaa POS',
@@ -41,7 +46,8 @@ class _MyAppState extends State<MyApp> {
         locale: _locale,
         supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
-        home: LoginScreen(),
+        // Set SplashScreen as the initial home route
+        home: const SplashScreen(), // <--- UPDATED: This will be the first screen
       ),
     );
   }

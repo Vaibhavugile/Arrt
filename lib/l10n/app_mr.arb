@@ -223,6 +223,14 @@
   "vendorDetails": "विक्रेता तपशील",
   "stockDetails": "स्टॉक तपशील",
   "noStockDetailsFound": "कोणतेही स्टॉक तपशील सापडले नाहीत",
+  "error_loading_vendors": "विक्रेते लोड करताना त्रुटी.",
+  "error_loading_items": "वस्तू लोड करताना त्रुटी.",
+  "selected_item_not_found": "निवडलेली वस्तू सापडली नाही.",
+  "no_entries_to_submit": "सादर करण्यासाठी नोंदी नाहीत.",
+  "error_adding_stock": "स्टॉक जोडताना त्रुटी.",
+  "addStockEntry": "स्टॉक एंट्री जोडा",
+  "error_loading_inventory": "इन्व्हेंटरी लोड करताना त्रुटी.",
+  "error_adding_vendor": "विक्रेता जोडताना त्रुटी.",
   "@quantity": {
     "placeholders": {
       "qty": {},

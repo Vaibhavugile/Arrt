@@ -19,6 +19,11 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
   String _unit = 'grams';
   List<String> _suggestedCategories = [];
 
+  // Add isDarkMode state for this screen
+  bool isDarkMode = false;
+  // Declare _isLoading state
+  bool _isLoading = false;
+
   @override
   void initState() {
     super.initState();
@@ -82,26 +87,36 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
       return;
     }
 
+    // Set loading to true before showing the dialog
+    setState(() => _isLoading = true);
+
     final confirmed = await showModal<bool>(
       context: context,
       configuration: FadeScaleTransitionConfiguration(),
       builder: (c) => AlertDialog(
-        title: Text(loc.confirmAddTitle),
-        content: Text(loc.confirmAddMessage),
+        title: Text(loc.confirmAddTitle, style: TextStyle(color: isDarkMode ? Colors.white : Colors.black)),
+        content: Text(loc.confirmAddMessage, style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black87)),
+        backgroundColor: isDarkMode ? Colors.grey[850] : Colors.white,
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(c, false),
-            child: Text(loc.cancel),
+            child: Text(loc.cancel, style: TextStyle(color: isDarkMode ? Colors.blueAccent : Colors.blue)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(c, true),
-            child: Text(loc.confirm),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDarkMode ? Color(0xFF87CEEB) : Color(0xFFBFEBFA), // Themed button color
+            ),
+            child: Text(loc.confirm, style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true) {
+      setState(() => _isLoading = false); // Reset loading if not confirmed
+      return;
+    }
 
     final standardized = _convertQuantity(qty);
 
@@ -131,6 +146,8 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(loc.addFailed)),
       );
+    } finally {
+      setState(() => _isLoading = false); // Ensure loading is false after operation
     }
   }
 
@@ -139,6 +156,7 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
     required TextEditingController controller,
     TextInputType inputType = TextInputType.text,
     Function(String)? onChanged,
+    bool isDarkMode = false, // Add isDarkMode parameter
   }) {
     return TextField(
       controller: controller,
@@ -146,17 +164,27 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
       onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!),
+        ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide:
-          BorderSide(color: Theme.of(context).colorScheme.primary),
+          borderSide: BorderSide(color: isDarkMode ? Colors.blueAccent : Colors.blue),
         ),
+        fillColor: isDarkMode ? Colors.grey[700] : Colors.grey[50],
+        filled: true,
+        labelStyle: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black87),
       ),
+      style: TextStyle(color: isDarkMode ? Colors.white : Colors.black87),
     );
   }
 
-  Widget _buildCategoryChips() {
+  Widget _buildCategoryChips({bool isDarkMode = false}) { // Add isDarkMode parameter
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
       child: _suggestedCategories.isEmpty
@@ -166,8 +194,8 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
         runSpacing: 8,
         children: _suggestedCategories.map((cat) {
           return ActionChip(
-            label: Text(cat),
-            backgroundColor: Colors.blueGrey.shade100,
+            label: Text(cat, style: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black87)),
+            backgroundColor: isDarkMode ? Colors.blueGrey.shade700 : Colors.blueGrey.shade100,
             onPressed: () {
               setState(() {
                 _category = cat;
@@ -185,100 +213,292 @@ class _AddInventoryScreenState extends State<AddInventoryScreen> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context)!;
 
+    // Define theme colors consistent with ProductScreen and AddProductScreen
+    final Color appBarGradientStart = Color(0xFFE0FFFF); // Muted light blue
+    final Color appBarGradientMid = Color(0xFFBFEBFA);   // Steel Blue
+    final Color appBarGradientEnd = Color(0xFF87CEEB);   // Dark Indigo (This is a good accent color)
+
+    final Color lightModeCardSolidColor = Colors.grey[100]!; // Changed to light grey
+    final Color darkModeCardColor = Colors.grey[800]!; // Dark mode card background
+    final Color lightModeCardTextColor = Colors.black87; // Dark text
+    final Color darkModeTextColor = Colors.white70; // Dark text
+
+    final Color webContentBackgroundLight = Colors.white;
+    final Color webContentBackgroundDark = Colors.grey[900]!;
+
     return Scaffold(
+      backgroundColor: isDarkMode ? webContentBackgroundDark : webContentBackgroundLight,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF4CB050),
-        title: Text(loc.addInventoryTitle,
-            style: const TextStyle(color: Colors.white)),
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Card(
-          shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          elevation: 6,
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(loc.ingredientInfoHeading,
-                    style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 16),
-
-                _buildTextField(
-                  label: loc.ingredientNameLabel,
-                  controller: _ingredientNameController,
-                ),
-                const SizedBox(height: 16),
-
-                _buildTextField(
-                  label: loc.categoryLabel,
-                  controller: _categoryController,
-                  onChanged: (v) {
-                    _category = v;
-                    _fetchCategories(v);
-                  },
-                ),
-                const SizedBox(height: 8),
-                _buildCategoryChips(),
-                const SizedBox(height: 16),
-
-                _buildTextField(
-                  label: loc.quantityLabel,
-                  controller: _quantityController,
-                  inputType: TextInputType.numberWithOptions(decimal: true),
-                ),
-                const SizedBox(height: 16),
-
-                InputDecorator(
-                  decoration: InputDecoration(
-                    labelText: loc.unitLabel,
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _unit,
-                      isExpanded: true,
-                      onChanged: (v) => setState(() {
-                        if (v != null) _unit = v;
-                      }),
-                      items: [
-                        'grams',
-                        'kilograms',
-                        'liters',
-                        'milliliters',
-                        'pieces',
-                        'boxes'
-                      ]
-                          .map((u) =>
-                          DropdownMenuItem(value: u, child: Text(u)))
-                          .toList(),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 28),
-
-                Center(
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.add),
-                    label: Text(loc.addButton),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 32, vertical: 14),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      elevation: 3,
-                    ),
-                    onPressed: _handleAddIngredient,
-                  ),
-                ),
+        title: Text(loc.addInventoryTitle, style: TextStyle(color: isDarkMode ? Colors.white : Colors.black87)),
+        iconTheme: IconThemeData(color: isDarkMode ? Colors.white : Colors.white),
+        actions: [
+          IconButton(
+            icon: Icon(
+              isDarkMode ? Icons.light_mode : Icons.dark_mode,
+              color: Colors.white,
+            ),
+            onPressed: () {
+              setState(() {
+                isDarkMode = !isDarkMode;
+              });
+            },
+            tooltip: loc.toggleTheme, // Assuming you have this string in app_localizations.dart
+          ),
+        ],
+        flexibleSpace: isDarkMode
+            ? Container(
+          color: Colors.grey[850], // Dark mode AppBar background
+        )
+            : Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                appBarGradientStart,
+                appBarGradientMid,
+                appBarGradientEnd,
               ],
+              stops: const [0.0, 0.5, 1.0],
             ),
           ),
         ),
+      ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          bool isLargeScreen = constraints.maxWidth > 700;
+
+          return Stack(
+            children: [
+              AnimatedSwitcher(
+                duration: Duration(milliseconds: 400),
+                child: _isLoading
+                    ? Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(isDarkMode ? appBarGradientMid : appBarGradientEnd)))
+                    : isLargeScreen
+                    ? Center( // Center the form on large screens
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24.0),
+                    child: ConstrainedBox( // Constrain max width for better readability on very wide screens
+                      constraints: BoxConstraints(maxWidth: 600), // Adjust max width as needed for a single form
+                      child: Card(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        elevation: 6,
+                        color: isDarkMode ? darkModeCardColor : lightModeCardSolidColor,
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(loc.ingredientInfoHeading,
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(color: isDarkMode ? darkModeTextColor : lightModeCardTextColor)),
+                              const SizedBox(height: 16),
+
+                              _buildTextField(
+                                label: loc.ingredientNameLabel,
+                                controller: _ingredientNameController,
+                                isDarkMode: isDarkMode,
+                              ),
+                              const SizedBox(height: 16),
+
+                              _buildTextField(
+                                label: loc.categoryLabel,
+                                controller: _categoryController,
+                                onChanged: (v) {
+                                  _category = v;
+                                  _fetchCategories(v);
+                                },
+                                isDarkMode: isDarkMode,
+                              ),
+                              const SizedBox(height: 8),
+                              _buildCategoryChips(isDarkMode: isDarkMode),
+                              const SizedBox(height: 16),
+
+                              _buildTextField(
+                                label: loc.quantityLabel,
+                                controller: _quantityController,
+                                inputType: TextInputType.numberWithOptions(decimal: true),
+                                isDarkMode: isDarkMode,
+                              ),
+                              const SizedBox(height: 16),
+
+                              InputDecorator(
+                                decoration: InputDecoration(
+                                  labelText: loc.unitLabel,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(color: isDarkMode ? Colors.blueAccent : Colors.blue),
+                                  ),
+                                  fillColor: isDarkMode ? Colors.grey[700] : Colors.grey[50],
+                                  filled: true,
+                                  labelStyle: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black87),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: _unit,
+                                    isExpanded: true,
+                                    onChanged: (v) => setState(() {
+                                      if (v != null) _unit = v;
+                                    }),
+                                    dropdownColor: isDarkMode ? Colors.grey[800] : Colors.white, // Dropdown background
+                                    style: TextStyle(color: isDarkMode ? Colors.white : Colors.black87), // Dropdown text color
+                                    items: [
+                                      'grams',
+                                      'kilograms',
+                                      'liters',
+                                      'milliliters',
+                                      'pieces',
+                                      'boxes'
+                                    ]
+                                        .map((u) =>
+                                        DropdownMenuItem(value: u, child: Text(u)))
+                                        .toList(),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 28),
+
+                              Center(
+                                child: ElevatedButton.icon(
+                                  icon: const Icon(Icons.add, color: Colors.black87),
+                                  label: Text(loc.addButton, style: TextStyle(color: Colors.black87)),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 32, vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16)),
+                                    elevation: 3,
+                                    backgroundColor: isDarkMode ? appBarGradientEnd : appBarGradientMid, // Themed button color
+                                  ),
+                                  onPressed: _handleAddIngredient,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+                    : SingleChildScrollView( // Mobile Layout
+                  padding: const EdgeInsets.all(16),
+                  child: Card( // Wrap content in a Card for consistent styling
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    elevation: 6,
+                    color: isDarkMode ? darkModeCardColor : lightModeCardSolidColor,
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(loc.ingredientInfoHeading,
+                              style: Theme.of(context).textTheme.titleLarge?.copyWith(color: isDarkMode ? darkModeTextColor : lightModeCardTextColor)),
+                          const SizedBox(height: 16),
+
+                          _buildTextField(
+                            label: loc.ingredientNameLabel,
+                            controller: _ingredientNameController,
+                            isDarkMode: isDarkMode,
+                          ),
+                          const SizedBox(height: 16),
+
+                          _buildTextField(
+                            label: loc.categoryLabel,
+                            controller: _categoryController,
+                            onChanged: (v) {
+                              _category = v;
+                              _fetchCategories(v);
+                            },
+                            isDarkMode: isDarkMode,
+                          ),
+                          const SizedBox(height: 8),
+                          _buildCategoryChips(isDarkMode: isDarkMode),
+                          const SizedBox(height: 16),
+
+                          _buildTextField(
+                            label: loc.quantityLabel,
+                            controller: _quantityController,
+                            inputType: TextInputType.numberWithOptions(decimal: true),
+                            isDarkMode: isDarkMode,
+                          ),
+                          const SizedBox(height: 16),
+
+                          InputDecorator(
+                            decoration: InputDecoration(
+                              labelText: loc.unitLabel,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: isDarkMode ? Colors.grey[600]! : Colors.grey[300]!),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: isDarkMode ? Colors.blueAccent : Colors.blue),
+                              ),
+                              fillColor: isDarkMode ? Colors.grey[700] : Colors.grey[50],
+                              filled: true,
+                              labelStyle: TextStyle(color: isDarkMode ? Colors.white70 : Colors.black87),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _unit,
+                                isExpanded: true,
+                                onChanged: (v) => setState(() {
+                                  if (v != null) _unit = v;
+                                }),
+                                dropdownColor: isDarkMode ? Colors.grey[800] : Colors.white,
+                                style: TextStyle(color: isDarkMode ? Colors.white : Colors.black87),
+                                items: [
+                                  'grams',
+                                  'kilograms',
+                                  'liters',
+                                  'milliliters',
+                                  'pieces',
+                                  'boxes'
+                                ]
+                                    .map((u) =>
+                                    DropdownMenuItem(value: u, child: Text(u)))
+                                    .toList(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 28),
+
+                          Center(
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.add, color: Colors.black87),
+                              label: Text(loc.addButton, style: TextStyle(color: Colors.black87)),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 32, vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16)),
+                                elevation: 3,
+                                backgroundColor: isDarkMode ? appBarGradientEnd : appBarGradientMid,
+                              ),
+                              onPressed: _handleAddIngredient,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

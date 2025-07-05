@@ -35,7 +35,7 @@ dependencies:
   flutter_animate: ^4.2.0
   animations: ^2.0.7
   dropdown_button2: ^1.0.0
-  google_fonts: ^6.1.0
+  google_fonts: ^5.1.0
   lucide_icons: ^0.257.0
   fl_chart: ^0.63.0
   fluttertoast: ^8.0.9
@@ -74,14 +74,9 @@ flutter:
   uses-material-design: true
   generate: true
 
-l10n:
-  arb-dir: lib/l10n
-  template-arb-file: app_en.arb
-  output-localization-file: app_localizations.dart
-
-# Uncomment to add assets
-# assets:
-#   - images/logo.png
+  # Uncomment to add assets
+  assets: # This line was uncommented
+    - assets/ # This line was uncommented, assuming your logo is in an 'assets' folder
 
 # Uncomment to add custom fonts
 # fonts:

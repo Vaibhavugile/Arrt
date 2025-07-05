@@ -1,9 +1,9 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-// import 'package:path_provider/path_provider.dart'; // <<< REMOVE THIS IMPORT for web
 
-import 'app.dart';
+import 'app.dart'; // Your main app widget
 import 'firebase_options.dart';
 
 void main() async {
@@ -15,11 +15,11 @@ void main() async {
 
   // Initialize Hive - NO path_provider needed for web
   // Hive automatically uses IndexedDB for web
-  await Hive.initFlutter(); // <<< CHANGE THIS LINE: Remove the path argument
-
+  await Hive.initFlutter();
   // Open Hive box for offline login data
   await Hive.openBox('offline_cache');
-  print('Main function is running!'); // ADD THIS LINE
-  runApp(MyApp());
+  print('Main function is running!');
 
+  // Run your MyApp directly, as it now contains the MaterialApp and MultiProvider
+  runApp(const MyApp());
 }
