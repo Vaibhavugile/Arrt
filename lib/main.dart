@@ -19,6 +19,7 @@ void main() async {
 
   // Open Hive box for offline login data
   await Hive.openBox('offline_cache');
-
+  print('Main function is running!'); // ADD THIS LINE
   runApp(MyApp());
+
 }
