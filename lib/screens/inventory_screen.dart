@@ -175,7 +175,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final Color appBarGradientEnd = Color(0xFF87CEEB); // Dark Indigo
 
     final Color lightModeCardSolidColor =
-    Colors.grey[100]!; // Peach Puff (for small screen cards)
+    Color(0xFFCBEEEE); // Peach Puff (for small screen cards)
     final Color darkModeCardColor =
     Colors.grey[800]!; // Dark mode card background (for small screen cards)
     final Color lightModeCardIconColor =
@@ -295,7 +295,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   Container(
                     width: 260,
                     decoration: BoxDecoration(
-                      color: isDarkMode ? darkModeCardColor : lightModeCardSolidColor,
+                      color: isDarkMode ? darkModeCardColor : Colors.grey[100],
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(

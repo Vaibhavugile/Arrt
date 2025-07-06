@@ -375,7 +375,7 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
           const SizedBox(height: 16),
           Text(
             'Current Order for Table ${tableNumber ?? "..."}',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF4CAF50)),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFCBEEEE)),
           ),
           const SizedBox(height: 12),
           if (orders.isEmpty)
@@ -476,8 +476,8 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
                   icon: const Icon(Icons.send),
                   label: const Text('Send KOT Update'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4CAF50),
-                    foregroundColor: Colors.white,
+                    backgroundColor: const Color(0xFFCBEEEE),
+                    foregroundColor: Colors.black87,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -531,7 +531,7 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4CAF50),
+                backgroundColor: const Color(0xFFCBEEEE),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -562,7 +562,7 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
                         borderSide: const BorderSide(color: Colors.grey, width: 1)),
                     focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(25),
-                        borderSide: const BorderSide(color: Color(0xFF4CAF50), width: 2)),
+                        borderSide: const BorderSide(color: Color(0xFFCBEEEE), width: 2)),
                   ),
                   style: const TextStyle(fontSize: 14),
                 ),
@@ -590,9 +590,9 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
                               });
                             }
                           },
-                          selectedColor: const Color(0xFF4CAF50),
+                          selectedColor: const Color(0xFFCBEEEE),
                           labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : Colors.black87,
+                            color: isSelected ? Colors.black87 : Colors.black87,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                             fontSize: 13,
                           ),
@@ -611,7 +611,7 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
         ),
       ),
       body: grouped.isEmpty
-          ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4CAF50))))
+          ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFCBEEEE))))
           : Padding(
         padding: const EdgeInsets.all(16),
         child: GridView.builder(
@@ -642,8 +642,8 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
             onPressed: _showCartSheet,
             label: Text('View Cart ($totalQuantity)', style: const TextStyle(fontSize: 14)), // Show total quantity
             icon: const Icon(Icons.shopping_cart, size: 20),
-            backgroundColor: const Color(0xFF4CAF50),
-            foregroundColor: Colors.white,
+            backgroundColor: const Color(0xFFCBEEEE),
+            foregroundColor: Colors.black87,
             elevation: 6,
           )
               : const SizedBox.shrink();
@@ -690,7 +690,7 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
                 );
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF4CAF50),
+                backgroundColor: const Color(0xFFCBEEEE),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -725,7 +725,7 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
                           borderSide: BorderSide(color: Colors.grey.shade300, width: 1)),
                       focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(30),
-                          borderSide: const BorderSide(color: Color(0xFF4CAF50), width: 2)),
+                          borderSide: const BorderSide(color: Color(0xFFCBEEEE), width: 2)),
                     ),
                     style: const TextStyle(fontSize: 16),
                   ),
@@ -750,9 +750,9 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
                               });
                             }
                           },
-                          selectedColor: const Color(0xFF4CAF50),
+                          selectedColor: const Color(0xFFCBEEEE),
                           labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : Colors.black87,
+                            color: isSelected ? Colors.black87 : Colors.black87,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                             fontSize: 15,
                           ),
@@ -767,7 +767,7 @@ class _MenuPageState extends State<MenuPage> with TickerProviderStateMixin {
                 const SizedBox(height: 20),
                 Expanded(
                   child: grouped.isEmpty
-                      ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF4CAF50))))
+                      ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFCBEEEE))))
                       : Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: GridView.builder(
@@ -920,13 +920,13 @@ class ProductCard extends StatelessWidget {
                   width: iconSize + 8,
                   height: iconSize + 8,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF4CAF50),
+                    color: const Color(0xFFCBEEEE),
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(10),
                       bottomRight: Radius.circular(12),
                     ),
                   ),
-                  child: Icon(Icons.add, color: Colors.white, size: iconSize),
+                  child: Icon(Icons.add, color: Colors.black87, size: iconSize),
                 ),
               ),
             ),
@@ -972,7 +972,7 @@ class _AnimatedAddToCartState extends State<AnimatedAddToCart>
         return Positioned(
           top: position.value.dy,
           left: position.value.dx,
-          child: const Icon(Icons.fastfood, size: 28, color: Color(0xFF4CAF50)),
+          child: const Icon(Icons.fastfood, size: 28, color: Color(0xFFCBEEEE)),
         );
       },
     );

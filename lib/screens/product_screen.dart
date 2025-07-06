@@ -213,7 +213,7 @@ class _ProductScreenState extends State<ProductScreen> {
     final Color appBarGradientMid = Color(0xFFBFEBFA);   // Steel Blue
     final Color appBarGradientEnd = Color(0xFF87CEEB);   // Dark Indigo (This is a good accent color)
 
-    final Color lightModeCardSolidColor = Colors.grey[100]!; // Changed to light grey
+    final Color lightModeCardSolidColor = Color(0xFFCBEEEE); // Changed to light grey
     final Color darkModeCardColor = Colors.grey[800]!; // Dark mode card background
     final Color lightModeCardIconColor = Colors.black87; // Dark icons
     final Color lightModeCardTextColor = Colors.black87; // Dark text
@@ -299,7 +299,7 @@ class _ProductScreenState extends State<ProductScreen> {
           Container(
             width: 260,
             decoration: BoxDecoration(
-              color: isDarkMode ? darkModeCardColor : lightModeCardSolidColor,
+              color: isDarkMode ? darkModeCardColor : Colors.grey[100],
               borderRadius: BorderRadius.circular(12),
               boxShadow: [
                 BoxShadow(
